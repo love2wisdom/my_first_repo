@@ -1,0 +1,206 @@
+########################################################################################
+#
+# 확률밀도함수(PDF), 누적분포함수(CDF), 결합확률밀도함수(joint PDF) 및 주변확률밀도함수  
+#
+#######################################################################################
+
+# 정규분포를 따르는 확률변수 a 생성
+a <- rnorm(n = 100, mean = 2, sd = 1)
+
+
+# 분포도 그리기 
+plot(a, main = "scatter plotting of a")
+
+
+# 확률밀도함수(PDF) 그래프 그리기 
+plot(density(a), main = "Probability Density Function of a") 
+
+
+# 누적분포함수(CDF) 그래프 그리기 
+plot(ecdf(x), main = "Cumulative Density Function of a")       
+
+
+ 확률변수 x, y 생성
+x <- 1:10
+y <- x
+
+# 결합확률밀도함수(joint PDF) 정의 
+fn <- function(x, y) {0.1*exp(-0.1*(x + y))}
+
+# 결합확률이 입력된 행렬 z 생성 (함수 fn을 이용하여 x와 y의 외적을 구함) 
+z <- outer(x, y, fn)
+
+# 결합확률밀도함수 그래프 그리기 
+persp(x, y, z, main = "Joint PDF of x and y")     #graphics package
+
+library("plot3D")
+contour3D(x, y, z, colvar = z)                    # 다른 각도에서 결합확률밀도함수 그래프 보기 
+
+library("mnormt") 
+contour(x, y, z)                                  # 결합확률밀도함수 2차원 그래프  
+
+
+# 주변확률분포(marginal probability distribution)
+# 의미 : 두개의 변수로 이루어진 결합확률분포로부터 개별 확률변수에 대한 분포(확률함수)
+# X의 주변확률 : Y가 취할 수 있는 모든 값들에 대한 결합함수의 합
+# X의 주변확률밀도함수 : X의 주변확률을 나타내는 함수 
+
+# 조건부확률밀도함수(conditional PDF)
+# 확률변수 Y가 어떤 특정한 값을 취한 것이 전제가 된 상태에서 확률변수 X가 어떤 특정한 값 x를 취할 확률
+
+par(mfrow = c(2,2))                                                  # 그래프 화면 분활 (2행 2열)
+layout(matrix(c(1,3,2,0), nrow = 2, byrow = T))                      # 그래프 화면 배치 
+contour(x, y, z)
+plot(x, rowSums(z), type = "l", xlab = "", ylab = "", ylim = c(0, 10))
+plot(colSums(z), y, type = "l", xlab = "", ylab = "", xlim = c(0, 0.01))
+
+########################################################################################
+#
+#                                   정규분포와 관련 분포   
+#
+#######################################################################################
+
+# d*(x, 모수) : (*분포의)확률밀도함수 
+# p*(x, 모수) : (*분포의)누적확률분포함수
+# q*(p, 모수) : (*분포의) 분위수함수 (누적확률분포함수의 역함수) - p값에 해당하는 x값을 반환 
+
+
+# 정규분포 : 정규함수로부터 유래된 분포(라플라스), 물리계측의 오차에 대한 확률분포(가우스)
+x <- seq(-5, 15, 0.01)
+par(mfcol = c(2,1))
+plot(x, dnorm(x, 3, 1), type = "l", main = "Same Variance, Different Means")
+lines(x, dnorm(x, 7, 1))
+plot(x, dnorm(x, 5, 1), type = "l", main = "Same Variance, Different Means")
+lines(x, dnorm(x, 5, 2))
+
+# 표준정규분포
+par(mfcol = c(1,1))
+z <- seq(-10, 10, 0.01)
+fz <- dnorm(z, mean = 0, sd = 1)
+plot(z, fz, type = "l", main = "Standard Normal Distribution", xlab = "z", ylab = "f(z)")
+
+# 확률변수 z가 특정 구간(-1 ~ 1)에 속할 확률 
+pnorm(1) - pnorm(-1)
+
+# 카이제곱분포 : 표준정규분포하는 서로 독립된 확률변수의 제곱합의 분포 
+# 분포의 모양은 자유도에 따라 달라지며, 자유도가 클수록 정규분포에 가까운 모양을 갖게 됨. 
+# 평균이 0 이고, 분산이 σ^2인 정규분포하는 q개의 서로 독립인 확률변수의 제곱을 분산으로 나눈 값을 합하면 
+# 표준정규분포하는 확률변수의 경우처럼 자유도가 q인 카이 제곱을 가짐. 
+# 이 때, 카이제곱분포의 평균 = q(자유도 수), 카이제곱분포의 분산 = 2q
+X <- seq(0, 60, by = 0.01)
+fX1 <- dchisq(X, df = 1)
+fX2 <- dchisq(X, df = 10)
+fX3 <- dchisq(X, df = 30)
+plot(X, fX1, type = "l", xlim = c(0, 60), ylim = c(0, 0.15), ylab = "", main = "")
+par(new = T)
+plot(X, fX2, type = "l", axes = F, xlim = c(0, 60), ylim = c(0, 0.15), ylab = "", main = "")
+par(new = T)
+plot(X, fX3, type = "l", axes = F, xlim = c(0, 60), ylim = c(0, 0.15), ylab = "f(X)", main = "Chi-squre Distribution")
+
+b <- 0.1
+qchisq(1 - a, df = 5)
+qchisq(a, df = 5, lower.tail = F)
+
+
+# t - 분포 
+# 확률변수 Z가 표준정규분포를 갖고 확률변수 X가 자유도가 q인 chi-squred분포를 가지며, 
+# 두 확률변수 Z 및 X가 서로 독립일 경우 확률변수 T는 t-분포를 갖게 됨.  
+
+seq.vec <- seq(-3, 3, by = 0.01)
+ft <- dt(seq.vec, df = 2)                                         # 대응확률 t-분포 
+fz <- dnorm(seq.vec, mean = 0, sd = 1)                             # 대응확률 정규분포
+plot(seq.vec, ft, type = "l", xlim = c(-3,3), ylim = c(0, 0.45), 
+     xlab = "", ylab = "")
+par(new = T)
+plot(seq.vec, fz, type = "l", xlim = c(-3,3), ylim = c(0, 0.45), 
+     main = "Standard normal distribution and t-distribution", 
+     axes = F, xlab = "", ylab = "density")
+
+# 자유도가 10인 확률변수 T가 특정 구간(1.372 < T < 2.228)에 속할 확률 
+pt(2.228, df = 10) - pt(1.372, df = 10)
+
+
+
+# F - 분포 
+# 각각 자유도가 q1, q2인 chi-squared 분포를 갖는 두 확률변수 X1, X2의 비율에 의해 정의됨. 
+
+vec.F <- seq(0, 4, by = 0.01)
+fF <- df(vec.F, df1 = 20, df2 = 10)
+plot(vec.F, fF, type = "l", xlab = "F", ylab = "f(F)", main = "F-distribution")
+
+# 자유도가 q1 =20, q2 = 10인 F-분포에서 F가 K보다 클 확률이 0.05가 되는 임계값 K는 얼마인가?
+
+c <- 0.05
+qf(1 - c, df1 = 10, df2 = 20)
+qf(c, df1 = 10, df2 = 20, lower.tail = F)
+
+
+
+########################################################################################
+#
+#                                   표본분포와 중심극한정리    
+#
+#######################################################################################
+
+
+# 표본을 통한 모집단 추정의 전제 
+#  - 표본이 모집단을 대표 : 이는 표본이 포함하고 있는 오차가 측정 가능함을 의미 
+# 표본분포 : 모집단에서 일정한 크기의 모든 가능한 표본을 추출했을 때 표본으로부터 계산된 통계량의 확륳분포
+# 표본통계량 : 관측가능한 확률표본의 함수이자 확률변수이므로 확률표본이 달라질 때마다 다른 값을 가지므로 확률분포를 가짐. 
+
+
+# 표본평균의 표본분포의 특징 
+# 1. 표본평균의 기대값은 모집단의 평균과 동일
+# 2. 표본평균의 분산은 '모집단 분산/n'으로 표본의 크기 n이 커질수록 표본평균의 분산은 0에 가까워짐. 
+# 3. 모집단이 어떤 분포를 하여도 표본의 크기가 충분히 크다면 표본평균의 표본분포는 정규분포를 따름. 
+
+
+norm.pop <- rnorm(10000, 0, 1)
+norm.sample.5 <- c()
+norm.sample.50 <- c()
+for (i in 1:100) {
+  norm.sample.5[i] <- mean(sample(norm.pop, size = 5, replace = T))
+  norm.sample.50[i] <- mean(sample(norm.pop, size = 50, replace = T))
+}
+par(mfcol = c(1,2))
+hist(norm.sample.5, freq = F, xlim = c(-2, 2))
+hist(norm.sample.50, freq = F, xlim = c(-2,2))
+
+# 중심극한정리 
+# 모집단이 어떤 분포를 하더라도 표본의 크기가 충분히 크면 표본평균의 표본분포는 정규분포에 근접하게 됨. 
+# 그리고 표본크기가 커질수록 커질수록 표본분포는 보다 더 정규분포에 가깝게 됨. 
+
+# 자유도가 1인 chi-squared 분포 난수 10000개로 이루어진 모집단
+# 표본크기가 각각 n = 5, n = 100, n = 10000인 표본을 100회 추출한 후, 추출된 표본분포의 히스토그램 작성
+
+set.seed(43210)
+chi.pop <- rchisq(10000, df = 1)
+chi.sample.5 <- c()
+chi.sample.100 <- c()
+chi.sample.10000 <- c()
+for (i in 1:100) {
+  chi.sample.5[i] <- mean(sample(chi.pop, size = 5, replace = T))
+  chi.sample.100[i] <- mean(sample(chi.pop, size = 100, replace = T))
+  chi.sample.10000[i] <- mean(sample(chi.pop, size = 10000, replace = T))
+}
+par(mfcol = c(2,2))
+hist(chi.pop, freq = F)
+hist(chi.sample.5, freq = F)
+hist(chi.sample.100, freq = F)
+hist(chi.sample.10000, freq = F)
+
+
+# 표본분산의 표본분포 
+# 분산이 σ^2인 정규분포를 이루는 모집단에서 표본을 추출할 때, 
+# 각 표본의 분산 S^2의 표본분포는 항상 양의 값을 가지며, chi-squared 분포를 따름. 
+
+# 모집단에서 표본을 추출하였을 때 표본 표준편차가 특정값보다 클 확률 구하기 
+# 모집단(국내 펀드 상품 수익률)표준편차 = 2.25
+# 표본 개수 = 19개 
+# 표본의 수익률이 2.65보다 클 확률 
+chi <- (18*2.65^2)/(2.25^2)
+pchisq(chi, df = 18, lower.tail = F)
+
+
+
+
