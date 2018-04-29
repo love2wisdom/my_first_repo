@@ -1,0 +1,52 @@
+
+med.data <- read.table("~/12.R/my_frist_repo/01. Origin Data/medFactor.txt", header = T)
+head(med.data)
+summary(med.data)
+
+colSums(med.data)
+
+# 초기 요인분석 실시 
+install.packages(c("psych", "GPArotation"))
+
+library(psych)
+library(GPArotation)
+
+# PCA 분석을 통해 몇 개의 고유근(values)을 결정할지 탐색 
+# value가 1이상인 경우까지만 인자수로 채택 
+med.factor <- principal(med.data, rotate = "none")
+names(med.factor)
+
+med.factor$values
+plot(med.factor$values, type = "b")
+
+
+# 고유근 갯수와 요인회전 방법을 결정
+med.Varimax = principal(med.data, nfactors = 3, rotate = "varimax")
+med.Varimax
+
+# h2는 공통성, u2는 고유분산을 의미 
+# 공통성 수치는 0.3 이하이면 다른 변수들과 공통점이 없는 것으로 판단
+
+# 해석을 하면
+# h2는 각변수의 공통성(communality),  u2는 고유분산을 말하는데
+# 공통성의 수치는 다른 변수들과의 공통성을 말하는 것으로 저 수치가 통상 0.3 보다 아래이면 다른 변수들과 공통점이 별로 없는 것으로 판단할 수 있다.
+# Proportion var는 각 요인이 설명하는 총 분산의 비율을 말하는 것으로 RC1이 총 분산의 22%, RC2가 29%, RC3이 14%로 이 세 요인이 총 변동의 56%를 설명한다 해석할 수 있다. 
+# 그리고 RC1, RC2, RC3의 수치를 볼 때
+# RC1은 lung, liver, kidney, heart가 높은 값을 가지고, 
+# RC2는 stamina,stretch, blow, urine이 높은 값을 가지고
+# RC3은 muscle과 skeleton에서 높은 값을 가진다. 
+# 이 세개에 가장 높은 값을 가진것들을 바탕으로 이름을 붙이면
+# RC1은 생물의학,  RC2는 인체기능, RC3은 근육골계통력으로 이름 붙일 수 있다. 
+
+
+biplot(med.Varimax)
+med.Varimax2 <- principal(med.data, nfactors = 2, rotate = "varimax")
+biplot(med.Varimax2)
+
+
+
+# 최우추정법, 회전은 사각회전 
+stats.fact <- factanal(med.data, factors = 3, rotation = "oblimin")
+stats.fact
+print(stats.fact$loadings, cutoff = 0)
+
