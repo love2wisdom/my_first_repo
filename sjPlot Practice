@@ -1,0 +1,150 @@
+# Load the packages and define your theme (there are a lot ...)
+library(sjPlot)
+library(sjmisc)
+library(ggplot2)
+set_theme(geom.outline.color = "antiquewhite4", 
+             geom.outline.size = 1,
+             geom.label.size = 2, 
+             geom.label.color = "black", 
+             title.color = "red", 
+             title.size = 1.5, 
+             axis.textcolor = "blue", 
+             base = theme_bw())
+
+
+# Load data and represent the bar chart of one the variable.
+data(efc)
+attr(efc$e42dep, "labels")
+sjp.frq(efc$e42dep, coord.flip = T, geom.size = .4)
+sjp.frq(efc$e42dep, show.prc = T, show.n = F)
+xtabs(~efc$e16sex+efc$e42dep)
+sjp.xtab(x = efc$e42dep, grp = efc$e16sex)
+sjp.xtab(x = efc$e42dep, grp = efc$e16sex, bar.pos = "stack", 
+         margin = "row", show.n = F, show.total = F, 
+         summary.pos = "l")
+
+sjp.xtab(x = efc$e42dep, grp = efc$e16sex,  
+         show.n = F, show.total = F, 
+         type = "line")
+
+
+# recveive first item of COPE-index scale
+start <- which(colnames(efc) == "c82cop1")
+# recveive first item of COPE-index scale
+end <- which(colnames(efc) == "c90cop9")
+sjp.stackfrq(efc[,start:end], expand.grid = T, 
+             geom.size = 0.4, sort.frq = "last.desc")
+
+## Data 
+mydf <- data.frame(
+  question1 = as.factor(sample(1:4, 500, replace = T, 
+                               prob = c(0.25, 0.33, 0.14, 0.28))),
+  question2 = as.factor(sample(1:4, 500, replace = T, 
+                               prob = c(0.5, 0.25, 0.15, 0.1))),
+  question3 = as.factor(sample(1:4, 500, replace = T, 
+                               prob = c(0.25, 0.1, 0.39, 0.26))),
+  question4 = as.factor(sample(1:4, 500, replace = T, 
+                               prob = c(0.17, 0.27, 0.38, 0.16))),
+  question5 = as.factor(sample(1:4, 500, replace = T, 
+                               prob = c(0.37, 0.26, 0.16, 0.21)))
+)
+
+# Create labels
+labels <- c("Strongly agree", "Agree", "Disagree", "Strongly disagress")
+# Create item labels
+items <- c("Question 1", "Question 2", "Question 3", "Question 4", "Questoin 5")
+
+sjp.likert(mydf, axis.labels = items, legend.labels = labels, geom.size = 0.4)
+
+
+# a simple chi-squared distribution
+# for 6 degrees of freedom
+dist_chisq(deg.f = 6)
+# a chi-squared distribution for 6 degrees of freedom,
+# and a shaded area starting at chi-squared value of ten.
+# With a df of 6, a chi-squared value of 12.59 would be "significant",
+# thus the shaded area from 10 to 12.58 is filled as "non-significant",
+# while the area starting from chi-squared value 12.59 is filled as
+# "significant"
+
+dist_chisq(chi2 = 10, deg.f = 6)
+# a chi-squared distribution for 6 degrees of freedom,
+# and a shaded area starting at that chi-squared value, which has
+# a p-level of about 0.125 (which equals a chi-squared value of about 10).
+# With a df of 6, a chi-squared value of 12.59 would be "significant",
+# thus the shaded area from 10 to 12.58 (p-level 0.125 to p-level 0.05)
+# is filled as "non-significant", while the area starting from chi-squared
+# value 12.59 (p-level < 0.05) is filled as "significant".
+dist_chisq(p = 0.125, deg.f = 6)
+
+# a simple F distribution for 6 and 45 degrees of freedom
+dist_f(deg.f1 = 6, deg.f2 = 45)
+# F distribution for 6 and 45 degrees of freedom,
+# and a shaded area starting at F value of two.
+# F-values equal or greater than 2.31 are "significant"
+dist_f(f = 2, deg.f1 = 6, deg.f2 = 45)
+# F distribution for 6 and 45 degrees of freedom,
+# and a shaded area starting at a p-level of 0.2
+# (F-Value about 1.5).
+dist_f(p = 0.2, deg.f1 = 6, deg.f2 = 45)
+
+# a simple normal distribution
+dist_norm()
+# a simple normal distribution with different mean and sd.
+# note that curve looks similar to above plot, but axis range
+# has changed.
+dist_norm(mean = 2, sd = 4)
+# a simple normal distribution
+dist_norm(norm = 1)
+# a simple normal distribution
+dist_norm(p = 0.2)
+
+# a simple t-distribution
+# for 6 degrees of freedom
+dist_t(deg.f = 6)
+# a t-distribution for 6 degrees of freedom,
+# and a shaded area starting at t-value of one.
+# With a df of 6, a t-value of 1.94 would be "significant".
+dist_t(t = 1, deg.f = 6)
+# a t-distribution for 6 degrees of freedom,
+# and a shaded area starting at p-level of 0.4
+# (t-value of about 0.26).
+dist_t(p = 0.4, deg.f = 6)
+
+data(efc)
+# fit model
+fit <- lm(tot_sc_e ~ c12hour + e17age + e42dep + neg_c_7, data = efc)
+# plot marginal effects for each predictor, each as single plot
+p <- sjp.lm(fit, type = "eff", facet.grid = FALSE, prnt.plot = FALSE)
+# plot grid
+plot_grid(p$plot.list)
+# or
+plot_grid(p)
+
+
+# prepare data
+library(sjmisc)
+data(efc)
+efc <- to_factor(efc, c161sex, e42dep, c172code)
+m <- lm(neg_c_7 ~ pos_v_4 + c12hour + e42dep + c172code, data = efc)
+# simple forest plot
+plot_model(m)
+# grouped coefficients
+plot_model(m, group.terms = c(1, 2, 3, 3, 3, 4, 4))
+# multiple plots, as returned from "diagnostic"-plot type,
+# can be arranged with 'plot_grid()'
+## Not run:
+p <- plot_model(m, type = "diag")
+plot_grid(p)
+## End(Not run)
+# plot random effects
+library(lme4)
+m <- lmer(Reaction ~ Days + (Days | Subject), sleepstudy)
+plot_model(m, type = "re")
+# plot marginal effects
+plot_model(m, type = "eff", terms = "Days")
+# plot interactions
+## Not run:
+m <- glm(
+  tot_sc_e ~ c161sex + c172code * neg_c_7
+
