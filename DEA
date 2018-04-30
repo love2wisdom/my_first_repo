@@ -1,0 +1,82 @@
+x <- matrix(1:5)
+y <- matrix(c(1,3,2,5,4))
+nam <- LETTERS[1:5]
+eff <- y/x / max(y/x)
+tab <- t(round(cbind(x,y,round(y/x,3),eff),3))
+colnames(tab) <- nam
+rownames(tab) <- c("input x","output y","y/x","efficiency")
+
+library(Benchmarking)
+dea.plot(x,y,RTS="crs",ORIENTATION="in-out",pch=19,cex=0.8,txt=LETTERS[1:length(x)],las=1)
+for (i in c(1,3:5)) arrows(x[i,1],y[i,1],x[i,1]*eff[i,1],y[i,1], length=0.1)
+
+x1 <- c(4,7,8,5,2)
+x2 <- c(3,2,1,5,5)
+y <- rep(1,5)
+library(boot)
+simplex(a = c(1,0,0),
+A1 = cbind(1,-x1,-x2), b1 = rep(0,5),
+A3 = matrix(c(0,4,3),ncol=3), b3=1, maxi = TRUE)
+
+x1 <- c(4,7,8,5,2)
+x2 <- c(3,2,1,5,5)
+y <- rep(1,5)
+
+erg <- matrix(NA,5,3)
+for (i in 1:5){
+e <- simplex(a = c(1,0,0),
+A1 = cbind(1,-x1,-x2), b1 = rep(0,5),
+A3 = matrix(c(0,x1[i],x2[i]),ncol=3), b3=1,
+maxi = TRUE)
+erg[i,] <- e$soln}
+erg
+
+library(Benchmarking)
+x1 <- c(4,7,8,5,2)
+x2 <- c(3,2,1,5,5)
+y <- rep(1,5)
+X <- cbind(x1,x2)
+Y <- matrix(y)
+dea(X,Y,RTS="crs",ORIENTATION="in",SLACK=T)
+
+dea.plot.isoquant(x1,x2,txt=LETTERS[1:5], xlim=c(0,10), pch=19,cex=0.8)
+segments(0,0,x1[2]*erg[2,1],x2[2]*erg[2,1], lty=2,lwd=1.5)
+segments(0,0,x1[4]*erg[4,1],x2[4]*erg[4,1], lty=2,lwd=1.5)
+arrows(x1[2],x2[2],x1[2]*erg[2,1],x2[2]*erg[2,1], length=0.1,angle=20)
+arrows(x1[4],x2[4],x1[4]*erg[4,1],x2[4]*erg[4,1], length=0.1,angle=20)
+
+library(boot)
+x1 <- c(4,7,8,5,2)
+x2 <- c(3,2,1,5,5)
+y <- rep(1,5)
+simplex(a = c(1,0,0,0,0,0),
+A2 = cbind(c(0,7,2),rbind(1,-x1,-x2)), b2 = c(1,0,0),
+A1 = matrix(-c(0,1,1,1,1,1),ncol=6), b1=0)
+
+
+y1 <- c(1,2,5,4,8)
+y2 <- c(8,5,6,2,1)
+x <- rep(1,5)
+library(boot)
+simplex(a = c(0,1,8),
+A1 = cbind(-1,y1,y2), b1 = rep(0,5),
+A3 = matrix(c(1,0,0),ncol=3), b3=1,
+A2 = rbind(c(0,1,0),c(0,0,1)),b2=c(0,0),
+maxi = TRUE)
+
+y1 <- c(1,2,5,4,8)
+y2 <- c(8,5,6,2,1)
+x <- rep(1,5)
+Y <- cbind(y1,y2)
+X <- matrix(x)
+e <- dea(X,Y,RTS="crs",ORIENTATION="in",SLACK=T)$eff
+#plot
+dea.plot.transform(y1,y2,txt=LETTERS[1:5],pch=19,cex=0.8)
+segments(0,0,y1[2],y2[2],lty=2,lwd=1.5)
+segments(0,0,y1[4],y2[4],lty=2,lwd=1.5)
+segments(y1[3],y2[3],y1[5],y2[5],lty=1)
+arrows(y1[2],y2[2],y1[2]/e[2],y2[2]/e[2],
+length=0.1,angle=20)
+arrows(y1[4],y2[4],y1[4]/e[4],y2[4]/e[4],
+length=0.1,angle=20)
+
