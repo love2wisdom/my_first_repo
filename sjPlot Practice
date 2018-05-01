@@ -148,3 +148,5 @@ plot_model(m, type = "eff", terms = "Days")
 m <- glm(
   tot_sc_e ~ c161sex + c172code * neg_c_7
 
+
+
