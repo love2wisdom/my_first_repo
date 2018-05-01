@@ -1,0 +1,12 @@
+다음 구문을 실행하면 예전에 없던 Error가 발생한다. 
+
+# 2.6.1 Buoy측정자료 정렬 : 지점별로 일별 평균치 
+day.avg.bu.Geoje <- bind.bu.data %>% filter(지점 == "거제도") %>% group_by(일시) %>% 
+  summarize(Buoy_거제도_기온=mean(기온, na.rm=T), Buoy_거제도_풍속 = mean(풍속, na.rm=T), Buoy_거제도_풍향=mean(풍향, na.rm=T),
+            Buoy_거제도_현지기압=mean(현지기압, na.rm=T), Buoy_거제도_최대파고=mean(최대파고, na.rm=T), 
+            Buoy_거제도_평균파고=mean(평균파고, na.rm=T), Buoy_거제도_유의파고=mean(유의파고, na.rm=T), 
+            Buoy_거제도_습도=mean(습도, na.rm=T), Buoy_거제도_파주기=mean(파주기, na.rm=T), Buoy_거제도_파향=mean(파향, na.rm=T), 
+            Buoy_거제도_수온=mean(수온, na.rm=T)) %>% 
+  arrange(일시)
+
+Error in order(일시) : object '일시' not found
