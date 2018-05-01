@@ -1,0 +1,7 @@
+64bit R을 쓰다가 32bit로 바꾸니 다음과 같은 에러메시지 뜸. 
+
+Warning messages:
+1: In RODBC::odbcDriverConnect("DSN=BigDataDSN;UID=KLNET;PWD=KLNET",  :
+  [RODBC] ERROR: state IM014, code 0, message [Microsoft][ODBC 드라이버 관리자] 지정된 DSN은 드라이버와 응용 프로그램 간 아키텍처 불일치를 포함합니다.
+2: In RODBC::odbcDriverConnect("DSN=BigDataDSN;UID=KLNET;PWD=KLNET",  :
+  ODBC connection failed
