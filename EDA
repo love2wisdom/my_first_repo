@@ -1,0 +1,245 @@
+#######################################################################################
+#
+#               Step 2. Exploratory Data Analysis (탐색적 데이터 분석)
+#
+#######################################################################################
+
+
+###################################################################################### 
+# 2-1. data.table 형태로 바꾸기 
+###################################################################################### 
+require(data.table)
+panel.data <- data.table(dataset.05)
+
+
+######################################################################################
+# 2-2. 구조 파악하기
+######################################################################################
+
+# 2.2.1 행과 열의 크기 확인 
+dim(panel.data)
+
+
+
+# 2.2.2 데이터프레임 속성, 클래스 및 데이터 유형을 확인 
+attributes(panel.data)
+class(panel.data)
+typeof(panel.data)
+
+
+
+# 2.2.3 데이터프레임 처음과 끝을 확인 (NA 존재 여부 1차 확인)
+head(panel.data)
+tail(panel.data)
+
+# 2.2.4 NA가 몇 개나 어느 열에 있는지 확인 
+colSums(is.na(panel.data))
+
+
+# 2.2.4 데이터프레임 자료 구조 파악 
+# ' 특히 factor 자료 존재 여부 확인하고 필요하면 문자열로 변경
+# ' 코드 정보 같은 경우 수치형으로 할지 문자형으로 할지 여부 확인 
+str(panel.data)
+
+
+
+
+# 2.2.5 데이터셋에 대한 기본 통계 정보 확인 
+summary(panel.data)
+
+require(psych)
+describe(panel.data)
+
+
+
+
+
+
+#####################################################################################
+# 2-3. 변수명 변경
+#####################################################################################
+
+# 변수명 다시 확인하고 변경할 변수 결정
+# ' 변수 이름과 위치 확인 
+names(panel.data)
+
+
+#  2.3.1  인덱스 기호([]) 이용하여 변경  
+colnames(panel.data)[20] <- c("경상개발비.01")
+
+
+# 2.3.2 which 및 %in% 사용하여 변경 
+colnames(panel.data)[which(colnames(panel.data) %in% 
+         c("경상개발_01", "연구개발비_01"))] <- c("경상개발비.01", "연구개발비" )
+
+# 2.3.3 reshape 패키지의 rename() 함수 사용 : old 변수명 ="new 변수명" 형태    
+
+
+
+# 2.3.4 plyr 패키지의 rename()함수 사용 : "old 변수명" =  "new 변수명" 형태
+
+
+
+# 2.3.5 dyplyr 패키지의 rename() 함수 : new 변수명 = "old 변수명" 형태 
+
+
+
+# 2.3.6 행 이름 변경  
+# ' rownames() 함수 이용 
+  
+
+
+
+#####################################################################################
+# 2-4. 특정 열 제거 
+#####################################################################################
+
+
+# 2.4.1 열이름을 알 경우(1) - 1개 열 제거  
+panel.data <- subset(panel.data, select = -개발비)
+
+
+# 2.4.2 열 이름을 알 경우(2) - 여러 개 열 제거 
+panel.data <- subset(panel.data, select = -c(임차료비용, 인건비))
+
+
+# 2.4.3 열 이름을 알 경우(3) - 연속한 다수 열 제거 
+panel.data <- subset(panel.data, select = -c(세금과공과:종업원수))
+
+
+
+
+
+
+#####################################################################################
+# 2-5. 데이터 값 조정 (NA 처리)
+#####################################################################################
+
+# 2.5.1 NA를 0으로 치환
+panel.data[is.na(panel.data)] <- 0 
+
+# 2.5.1.1 특정 열의 na를 0 으로 치환 
+panel.data$세금과공과[is.na(panel.data$세금과공과)] <- 0 
+
+# 2.5.1.2 특정 열의 na를 특정 열값의 평균으로 치환 
+panel.data$세금과공과[is.na(panel.data$세금과공과)] <- mean(panel.data$세금과공과, na.rm)
+
+# 2.5.1.3 데이터셋 각 변수의 결측값을 각 변수 평균으로 일괄 대체 
+panel.data.01 <- data.frame(sapply(panel.data, 
+                                   function(x) ifelse(is.na(x), mean(x, na.rm = TRUE), x)))
+
+
+
+# 2.5.2 dataframe 내에 NA가 있으면 행 전체를 삭제 
+panel.data.02 <- na.omit(panel.data)
+
+
+# 2.5.3 dataframe 특정 열에 NA가 있는 행만 제거 
+# ' complete.cases() 함수는 dataset에서 값이 있는 행번호를 돌려줌. 
+panel.data.03 <- panel.data[complete.cases(panel.data[ ,c("경상개발비")]), ]
+
+# 2.5.4 변환을 원하는 컬럼만 매트릭스로 변환 
+temp <- as.matrix(panel.data[,colums])
+
+
+
+
+#####################################################################################
+# 2-6. 데이터 요약 : %>% (pipe) 연산자, %T>% (터미널 파이프 연산자), %<>% , %$%
+#####################################################################################
+
+require(dplyr)
+require(tidyr)
+require(ggplot2)
+require(magrittr)
+
+
+# 2.6.1 Type-1 : %>% 
+# ' We read '%>%' as "and then". 
+mtcars %>% filter(carb >1) %>% group_by(cyl) %>% summarise(Avg_mpg=mean(mpg)) %>% 
+  arrange(desc(Avg_mpg))
+
+mtcars %>% filter(carb > 1) %>% lm(mpg ~ cyl+hp, data = .) %>% summary()
+
+mtcars %>% filter(carb > 1) %>% qplot(x = wt, y = mpg, data = .)
+
+mtcars %>% extract(,1:4) %>% head
+
+mtcars %>% extract(, "mpg") %>% multiply_by(5)
+mtcars %>% extract(, "cyl") %>% head
+
+mtcars %>% filter(carb >1) %>% extract(,1:4) %>% plot() %>% summary()
+
+
+# 2.6.2 Type-2 : %T>%
+# ' 중간에 값 리턴없이 종료하는 함수가 있어도 식 끝까지 값을 전달하는 연산자
+mtcars %>% filter(carb >1) %>% extract(,1:4) %T>% plot() %>% summary()
+mtcars %>% filter(carb >1) %>% extract(,1:4) %>% summary()
+
+# 2.6.3 Type-3 : %<>% 
+# ' 왼쪽의 데이터를 오른쪽의 함수에 적용한 후 함수 결과값을 다시 왼쪽에 저장 
+mtcars$mpg %<>% sqrt
+
+
+# 2.6.4 Type-4 : %$%
+# ' 함수의 인자와 컬럼 수를 맞춰야 할 때 데이터프레임의 열 이름을 지정하기 위한 연산자 
+mtcars %>% subset(vs == 0) %>% cor(mpg, wt) # Error occurs
+mtcars %>% subset(vs == 0) %$% cor(mpg, wt)
+
+
+
+panel.data %>% filter(연도 == 2010) %>% group_by(Industry Classification) %>% 
+  summarise(Avg_인건비 = mean(인건비)) %>% arrange(desc(Avg_인건비))
+
+
+
+
+
+
+#####################################################################################
+# 2-8. 시간 데이터 다루기  
+#####################################################################################
+
+install.packages(chron)
+
+library(chron)
+
+a <- as.Date('1915-6-16')
+as.Date('1990/02/17')
+
+dtimes = c("2002-06-09 12:45:40","2003-01-29 09:30:40",
+            "2002-09-04 16:45:40","2002-11-13 20:00:40",
+            "2002-07-07 17:30:40")
+
+dtparts = t(as.data.frame(strsplit(dtimes, " " )))
+row.names(dtparts) = NULL
+thetimes = chron(dates=dtparts[,1],times=dtparts[,2], format=c(dates="y-m-d",times="h:m:s"))
+thetimes
+
+
+dts = c("2005-10-21 18:47:22","2005-12-24 16:39:58","2005-10-28 07:30:05 PDT")
+as.POSIXlt(dts)
+
+
+rdates = scan(what="")
+# 1: 1.0 29Feb2000
+# 3: 1.1 15Jun2000
+# 5: 1.2 15Dec2000
+# 7: 1.3 22Jun2001
+# 9: 1.4 19Dec2001
+# 11: 1.5 29Apr2002
+# 13: 1.6 10Oct2002
+# 15: 1.7 16Apr2002
+# 17: 1.8 8Oct2003
+# 19: 1.9 12Apr2004
+# 21: 2.0 4Oct2004
+# 23: 
+
+rdates1 <- as.data.frame(matrix(rdates, ncol=2, byrow=TRUE))
+rdates1[,2] = as.Date(rdates1[,2], format='%d-%b-%Y')
+names(rdates1) <- c("Release", "Date")
+rdates1
+
+mean(rdates1$Date)
+range(rdates1$Date)
+rdates1$Date[11] - rdates1$Date[1]
