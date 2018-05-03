@@ -1,0 +1,101 @@
+#######################################################################################
+#
+#                                Step 1. 데이터 가져오기 
+#
+########################################################################################
+
+
+########################################################################################
+# 1-1. csv 파일 불러오기
+########################################################################################
+
+#   1.1.1 read.csv() 함수
+#   ' defaults : sep = "," & header = TRUE & strigsAsFactors = TRUE
+
+dataset.01 <- read.csv("paneldata.csv", stringsAsFactors = FALSE)
+
+#   1.1.2 read_csv() 함수 : readr packages 
+#   ' defaults : strigsAsFactors = FALSE 
+#   ' 파일 불러오면서 열 타입과 이름 지정 가능 
+
+library(readr)
+#dataset.02 <- read_csv("paneldata.csv",  col_names = c ("Var 1", "Var 2", "Var 3"), skip = 1)
+dataset.02 <- read_csv("paneldata.csv")
+
+
+#   1.1.3 read.table()함수
+#   ' defaults : sep = " " & header = FALSE & strigsAsFactors = TRUE
+
+dataset.03 <- read.table("paneldata.csv", sep =",", header = TRUE, stringsAsFactors = FALSE)
+
+
+
+###################################################################################### 
+# 1-2. txt 파일 불러오기 
+#######################################################################################
+
+#   1.2.1 read.delim() 함수 
+#   ' defaults : header = TRUE, sep = "\t"
+
+dataset.04 <- read.delim("paneldata.txt")
+
+
+
+####################################################################################
+# 1-3. 엑셀 파일 불러오기
+####################################################################################
+
+# 1.3.1 readxl 패키지 사용 
+require(readxl)
+dataset.05 <- read_excel("panel_data_(service).xlsx", sheet = "서비스업(2005-2016)")
+
+
+# 1.3.2 xlsx 패키지 사용 
+require(xlsx)
+dataset.06 <- read.xlsx("panel_data_(service).xlsx", sheet = "서비스업(2005-2016)")
+
+
+ 
+
+####################################################################################
+# 1-4. DB Connection 
+####################################################################################
+
+# 1.4.1 RJDBC로 연결하기 
+# install.packages(rJava)
+# install.packages(DBI)
+# install.packages(RJBDC)
+
+library(DBI)
+library(rJava)
+library(RJDBC)
+
+
+drv <- JDBC(driverClass = "oracle.jdbc.driver.OracleDriver", 
+            classPath = "C\\User\\share\\java\\ojdbc14.jar", "`")
+con.db <- dbConnet(drv, "jdbc:oracle:thin:@192.168.0.8:1521/BIGDATA", "BIGDATA", "BIGDATA")
+
+
+query = "SELECT * FROM BI_ACCOUNT"
+temp.data <- dbGetQuery(con.db, query)
+
+
+# 1.4.2 RODBC로 연결하기 
+# install.packages(RODBC)
+
+library(RODBC)
+
+# DATABASE 접속 정보 
+odbc.dsn <- "MyDataDSN"
+odbc.uid <- "MyData"
+odbc.pwd <- "MyData"
+
+
+db.connect <- odbcConnect(dsn = odbc.dsn, uid = odbc.uid, pwd = odbc.pwd, believeNRows = FALSE)
+
+
+odbcClose(db.connect)
+
+
+sessionInfo()
+
