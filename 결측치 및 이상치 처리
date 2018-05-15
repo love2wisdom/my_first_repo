@@ -1,0 +1,13 @@
+boxplot(odb.PM10, col = rainbow(6), main = "PM10(일평균)", xlab = "관측소", ylab = "관측값(μm/㎥)")
+
+
+
+require(DMwR2)
+
+outlier.score <- lofactor(odb.PM10, k=6)
+plot(density(outlier.score), main = "Outlier score of PM10")
+sort(outlier.score, decreasing = T)
+outliers <- order(outlier.score, decreasing = T)[1:2]
+outliers
+labels <- 1:nrow(odb.PM10)
+labels[-outliers] <- "."
