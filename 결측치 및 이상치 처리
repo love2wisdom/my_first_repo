@@ -1,5 +1,10 @@
-# 이상치 처리 
+#######################################################################################
+#
+#                                Step 3. 이상치 처리 
+#
+########################################################################################
 
+# 3.1 Outliers package 적용 
 require(outliers)
 
 boxplot(odb.PM10)
@@ -35,37 +40,41 @@ d.O3 <- rm.outlier(d.O3)
 boxplot(d.O3)
 
 
-
+# 3.2 DMwR2 packages 적용 
 require(DMwR2)
 
-outlier.score.dy <- lofactor(odb.SO2$대연동, k=60)
+outlier.score.dy <- lofactor(odb.SO2$대연동, k=80)
 plot(density(outlier.score.dy), main = "Outlier score of SO2(대연동)")
 PMSO2.outlier.dy <- outliers.ranking(odb.SO2$대연동)
 PMSO2.outlier.dy$rank.outliers[1:4]
 
 
-outlier.score.gb <- lofactor(odb.SO2$광복동, k=60)
+outlier.score.gb <- lofactor(odb.SO2$광복동, k=80)
 plot(density(outlier.score.gb), main = "Outlier score of SO2(광복동)")
 SO2.outlier.gb <- outliers.ranking(odb.SO2$광복동)
-SO2.outlier.gb$rank.outliers[1:3]
+SO2.outlier.gb$rank.outliers[1:4]
 
 
-outlier.score.jr <- lofactor(odb.SO2$장림동, k=50)
+outlier.score.jr <- lofactor(odb.SO2$장림동, k=75)
 plot(density(outlier.score.jr), main = "Outlier score of SO2(장림동)")
 SO2.outlier.jr <- outliers.ranking(odb.SO2$장림동)
 SO2.outlier.jr$rank.outliers[1:4]
+
 
 outlier.score.chr <- lofactor(odb.SO2$초량동, k=60)
 plot(density(outlier.score.chr), main = "Outlier score of SO2(초량동)")
 SO2.outlier.chr <- outliers.ranking(odb.SO2$초량동)
 SO2.outlier.chr$rank.outliers[1:4]
 
-outlier.score.km <- lofactor(odb.SO2$감만부두, k=10)
+
+
+outlier.score.km <- lofactor(odb.SO2$감만부두, k=90)
 plot(density(outlier.score.km), main = "Outlier score of SO2(감만부두)")
 SO2.outlier.km <- outliers.ranking(odb.SO2$감만부두)
 SO2.outlier.km$rank.outliers[1:3]
 
-outlier.score.sh <- lofactor(odb.SO2$신항, k=10)
+
+outlier.score.sh <- lofactor(odb.SO2$신항, k=50)
 plot(density(outlier.score.sh), main = "Outlier score of SO2(신항)")
 SO2.outlier.sh <- outliers.ranking(odb.SO2$신항)
 SO2.outlier.sh$rank.outliers[1:2]
@@ -79,6 +88,8 @@ odb.SO2$신항[c(68)] <- NA
 
 d.SO2 <- na.omit(odb.SO2)
 
+
+# 3.3 IQR Rule for Outliers
 
 fivenum(odb.CO$장림동)
 UpperQ = fivenum(odb.CO$장림동)[4]
