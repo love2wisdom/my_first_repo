@@ -1,0 +1,58 @@
+https://www.airkorea.or.kr/khaiInfo
+
+
+CO.class <- function(x) {
+  if (x <= 2) {CO_class = "좋음"
+               return(CO_class)} 
+  else if (x > 2 & x <= 9){CO_class = "보통" 
+                           return(CO_class)} 
+  else if (x > 9 & x <= 15){CO_class = "나쁨" 
+                           return(CO_class)}
+  else {CO_class = "매우나쁨"
+        return(CO_class)}
+}
+
+
+SO2.class <- function(x) {
+  if (x <= 0.02) {y = "좋음"
+  return(y)} 
+  else if (x > 0.02 & x <= 0.05){y = "보통" 
+  return(y)} 
+  else if (x > 0.05 & x <= 0.15){y = "나쁨" 
+  return(y)}
+  else {y = "매우나쁨"
+  return(y)}
+}
+
+NO2.class <- function(x) {
+  if (x <= 0.03) {y = "좋음"
+  return(y)} 
+  else if (x > 0.03 & x <= 0.06){y = "보통" 
+  return(y)} 
+  else if (x > 0.06 & x <= 0.2){y = "나쁨" 
+  return(y)}
+  else {y = "매우나쁨"
+  return(y)}
+}
+
+PM10.class <- function(x) {
+  if (x <= 30) {y = "좋음"
+  return(y)} 
+  else if (x > 30 & x <= 80){y = "보통" 
+  return(y)} 
+  else if (x > 80 & x <= 150){y = "나쁨" 
+  return(y)}
+  else {y = "매우나쁨"
+  return(y)}
+}
+
+PM2.5.class <- function(x) {
+  if (x <= 15) {y = "좋음"
+  return(y)} 
+  else if (x > 15 & x <= 35){y = "보통" 
+  return(y)} 
+  else if (x > 35 & x <= 75){y = "나쁨" 
+  return(y)}
+  else {y = "매우나쁨"
+  return(y)}
+}
