@@ -1,0 +1,48 @@
+# 방법 1. 기본 내장 함수 코드 보기 : consol 창에서 함수 이름만 입력 
+apply
+colnames 
+
+# 방법 2. 제네릭 함수 코드 보기
+# 단계1 : 패키지명:::함수명 입력 - 함수 내부에 서브 함수가 여러 개인 경우 다음과 같이 출력됨. 
+> MASS:::lda
+function (x, ...) 
+UseMethod("lda")
+<bytecode: 0x0000000017977c68>
+<environment: namespace:MASS>
+
+# 단계2 : methods()함수로 sub함수명 확인 
+> methods("lda")
+[1] lda.data.frame* lda.default*    lda.formula*    lda.matrix*    
+see '?methods' for accessing help and source code
+
+# 단계3-1 : 패키지명:::서브함수명 입력
+> MASS:::lda.data.frame
+function (x, ...) 
+{
+    res <- lda(structure(data.matrix(x), class = "matrix"), ...)
+    cl <- match.call()
+    cl[[1L]] <- as.name("lda")
+    res$call <- cl
+    res
+}
+<bytecode: 0x00000000189c3ad0>
+<environment: namespace:MASS>
+
+# 단계 3-2 : getAnywhere 함수 사용 
+> getAnywhere(lda.data.frame)
+A single object matching ‘lda.data.frame’ was found
+It was found in the following places
+  registered S3 method for lda from namespace MASS
+  namespace:MASS
+with value
+
+function (x, ...) 
+{
+    res <- lda(structure(data.matrix(x), class = "matrix"), ...)
+    cl <- match.call()
+    cl[[1L]] <- as.name("lda")
+    res$call <- cl
+    res
+}
+<bytecode: 0x00000000189c3ad0>
+<environment: namespace:MASS>
