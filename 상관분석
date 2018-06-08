@@ -1,0 +1,660 @@
+#######################################################################################
+#
+#   Step 1. 오염물질별 북항 관측소 DB 만들기 (시간데이터 기준) 
+#
+########################################################################################
+# 작업 디렉토리 설정
+setwd("D:/bigdata_secondary/800.파일공유/804.데이터분석공유/박세훈 자료/00-1. My Work_(진행중)/SFR-014-1_신규 시나리오(대기오염물질 영향인자 상관분석)/01. Original_Data/01. 내부 Data")
+
+
+require(readxl)
+
+# 북항 관측소 자료 불러오기 
+north.Oct <- read_excel("항만(부산북항)측정자료(2017.10.~2018.3.).xlsx", sheet = "10월")
+north.Nov <- read_excel("항만(부산북항)측정자료(2017.10.~2018.3.).xlsx", sheet = "11월")
+north.Dec <- read_excel("항만(부산북항)측정자료(2017.10.~2018.3.).xlsx", sheet = "12월")
+
+# 필요한 항목(열)만 정리하기 
+north.Oct <- data.frame(north.Oct[, c(5:9, 12:17)])
+north.Nov <- data.frame(north.Nov[, c(5:9, 12:17)])
+north.Dec <- data.frame(north.Dec[, c(5:9, 12:17)])
+
+# 열이름 지정
+names(north.Nov) <- c("일시", "O3", "SO2", "CO", "NO2", "PM10", "PM2.5", "온도", "풍향", "풍속", "습도")
+names(north.Dec) <- c("일시", "O3", "SO2", "CO", "NO2", "PM10", "PM2.5", "온도", "풍향", "풍속", "습도")
+names(north.Oct) <- c("일시", "O3", "SO2", "CO", "NO2", "PM10", "PM2.5", "온도", "풍향", "풍속", "습도")
+
+# '일시'열의 type을 POSIXlt으로 변경 
+north.Oct$일시 <- as.POSIXlt(north.Oct$일시)
+north.Nov$일시 <- as.POSIXlt(north.Nov$일시)
+north.Dec$일시 <- as.POSIXlt(north.Dec$일시)
+
+north.Dec <- north.Dec[-nrow(north.Dec),] 
+
+# 동불, 점검 등의 누락치 텍스트를 NA로 바꾸기 
+for(i in 2:11) {
+  north.Oct[, i] <- as.character(gsub("동불", "점검", north.Oct[,i]))
+  north.Oct[, i] <- as.numeric(gsub("점검", "", north.Oct[,i]))
+  
+  north.Nov[, i] <- as.character(gsub("동불", "점검", north.Nov[,i]))
+  north.Nov[, i] <- as.numeric(gsub("점검", "", north.Nov[,i]))
+  
+  north.Dec[, i] <- as.character(gsub("동불", "점검", north.Dec[,i]))
+  north.Dec[, i] <- as.numeric(gsub("점검", "", north.Dec[,i]))
+}
+
+# 에러 발생 항목의 내용을 살펴보기 (에러 발생했지만 내용은 정상적으로 처리 되었음.)
+str(north.Oct)
+
+# 3개월(10월~12월) 데이터를 행기준으로 합치기 
+t.north.PM10 <- rbind(north.Oct[,c(1,6,8:11)], north.Nov[,c(1,6,8:11)], north.Dec[,c(1,6,8:11)])
+t.north.PM2.5 <- rbind(north.Oct[,c(1,7,8:11)], north.Nov[,c(1,7,8:11)], north.Dec[,c(1,7,8:11)])
+t.north.SO2 <- rbind(north.Oct[,c(1,3,8:11)], north.Nov[,c(1,3,8:11)], north.Dec[,c(1,3,8:11)])
+t.north.NO2 <- rbind(north.Oct[,c(1,5,8:11)], north.Nov[,c(1,5,8:11)], north.Dec[,c(1,5,8:11)])
+t.north.CO <- rbind(north.Oct[,c(1,4,8:11)], north.Nov[,c(1,4,8:11)], north.Dec[,c(1,4,8:11)])
+t.north.O3 <- rbind(north.Oct[,c(1,2,8:11)], north.Nov[,c(1,2,8:11)], north.Dec[,c(1,2,8:11)])
+
+
+#######################################################################################
+#
+#   Step 2. 오염물질별 신항 관측소 DB 만들기 (시간데이터 기준) 
+#
+########################################################################################
+
+
+# 신항 관측소 자료 불러오기 
+new.Oct <- read_excel("항만(부산신항)측정자료(2017.10.~2018.3.).xlsx", sheet = "10월")
+new.Nov <- read_excel("항만(부산신항)측정자료(2017.10.~2018.3.).xlsx", sheet = "11월")
+new.Dec <- read_excel("항만(부산신항)측정자료(2017.10.~2018.3.).xlsx", sheet = "12월")
+
+# 필요한 항목(열)만 정리하기 
+new.Oct <- data.frame(new.Oct[, c(5:9, 12:17)])
+new.Nov <- data.frame(new.Nov[, c(5:9, 12:17)])
+new.Dec <- data.frame(new.Dec[, c(5:9, 12:17)])
+
+# 열이름 지정
+names(new.Nov) <- c("일시", "O3", "SO2", "CO", "NO2", "PM10", "PM2.5", "온도", "풍향", "풍속", "습도")
+names(new.Dec) <- c("일시", "O3", "SO2", "CO", "NO2", "PM10", "PM2.5", "온도", "풍향", "풍속", "습도")
+names(new.Oct) <- c("일시", "O3", "SO2", "CO", "NO2", "PM10", "PM2.5", "온도", "풍향", "풍속", "습도")
+
+# '일시'열의 type을 POSIXlt으로 변경 
+new.Oct$일시 <- as.POSIXlt(new.Oct$일시)
+new.Nov$일시 <- as.POSIXlt(new.Nov$일시)
+new.Dec$일시 <- as.POSIXlt(new.Dec$일시)
+
+new.Dec <- new.Dec[-nrow(new.Dec),] 
+
+nrow(new.Dec)
+
+# 동불, 점검 등의 누락치 텍스트를 NA로 바꾸기 
+for(i in 2:11) {
+  new.Oct[, i] <- as.character(gsub("동불", "점검", new.Oct[,i]))
+  new.Oct[, i] <- as.numeric(gsub("점검", "", new.Oct[,i]))
+  
+  new.Nov[, i] <- as.character(gsub("동불", "점검", new.Nov[,i]))
+  new.Nov[, i] <- as.numeric(gsub("점검", "", new.Nov[,i]))
+  
+  new.Dec[, i] <- as.character(gsub("동불", "점검", new.Dec[,i]))
+  new.Dec[, i] <- as.numeric(gsub("점검", "", new.Dec[,i]))
+}
+
+# 에러 발생 항목의 내용을 살펴보기 (에러 발생했지만 내용은 정상적으로 처리 되었음.)
+str(new.Oct)
+
+# 3개월(10월~12월) 데이터를 행기준으로 합치기 
+t.new.PM10 <- rbind(new.Oct[,c(1,6,8:11)], new.Nov[,c(1,6,8:11)], new.Dec[,c(1,6,8:11)])
+t.new.PM2.5 <- rbind(new.Oct[,c(1,7,8:11)], new.Nov[,c(1,7,8:11)], new.Dec[,c(1,7,8:11)])
+t.new.SO2 <- rbind(new.Oct[,c(1,3,8:11)], new.Nov[,c(1,3,8:11)], new.Dec[,c(1,3,8:11)])
+t.new.NO2 <- rbind(new.Oct[,c(1,5,8:11)], new.Nov[,c(1,5,8:11)], new.Dec[,c(1,5,8:11)])
+t.new.CO <- rbind(new.Oct[,c(1,4,8:11)], new.Nov[,c(1,4,8:11)], new.Dec[,c(1,4,8:11)])
+t.new.O3 <- rbind(new.Oct[,c(1,2,8:11)], new.Nov[,c(1,2,8:11)], new.Dec[,c(1,2,8:11)])
+
+
+
+
+#######################################################################################
+#
+#   Step 3. DB 정제 : 5mm이상 강수일 데이터(일전체) 및 NA데이터(해당 시간만) 삭제   
+#
+########################################################################################
+
+# 강수일 데이터 가져오기 위한 작업디렉토리 변경 
+setwd("D:/bigdata_secondary/800.파일공유/804.데이터분석공유/박세훈 자료/00-1. My Work_(진행중)/SFR-014-1_신규 시나리오(대기오염물질 영향인자 상관분석)/01. Original_Data/02. 외부 Data")
+
+# 강수정보 파일(CSV 형식) 가져오기 
+rain.db <- read.csv("강수정보(2017.10~2017.12).csv")
+
+# 열이름 수정 
+names(rain.db) <- c("일시", "지점", "강수량")
+
+
+# '일시' 표준시 무시하고 보이는 그대로 사용하기
+require(lubridate)
+rain.db$일시 <- as_date(rain.db$일시)
+
+# 맑은 날(강수량 NA) 행 삭제 
+rm.sunny.day <- na.omit(rain.db)
+
+rm.sunny.day$일시 <- date(rm.sunny.day$일시)
+
+
+# 강수량 5mm이상인 일시만 필터링 후, rainy.day에 저장 
+require(dplyr)
+rainny.day <- rm.sunny.day %>% select(일시, 강수량) %>% filter(강수량>=5) %>% arrange(일시)
+rainny.day$일시 <- as_date(rainny.day$일시)
+
+
+# 일자 정보 표준시 무시하고 보이는 그대로 사용하기 
+
+
+t.north.CO$일시 <- as_date(t.north.CO$일시)
+t.north.NO2$일시 <- as_date(t.north.NO2$일시)
+t.north.O3$일시 <- as_date(t.north.O3$일시)
+t.north.PM10$일시 <- as_date(t.north.PM10$일시)
+t.north.PM2.5$일시 <- as_date(t.north.PM2.5$일시)
+t.north.SO2$일시 <- as_date(t.north.SO2$일시)
+
+t.new.CO$일시 <- as_date(t.new.CO$일시)
+t.new.NO2$일시 <- as_date(t.new.NO2$일시)
+t.new.O3$일시 <- as_date(t.new.O3$일시)
+t.new.PM10$일시 <- as_date(t.new.PM10$일시)
+t.new.PM2.5$일시 <- as_date(t.new.PM2.5$일시)
+t.new.SO2$일시 <- as_date(t.new.SO2$일시)
+
+# 오염물질별 강수 5mm 이상인 날 데이터 제거하기 
+
+filter.t.north.CO <- t.north.CO[-which(t.north.CO$일시 %in% rainny.day$일시), ]
+filter.t.north.NO2 <- t.north.NO2[-which(t.north.NO2$일시 %in% rainny.day$일시), ]
+filter.t.north.O3 <- t.north.O3[-which(t.north.O3$일시 %in% rainny.day$일시), ]
+filter.t.north.PM10 <- t.north.PM10[-which(t.north.PM10$일시 %in% rainny.day$일시), ]
+filter.t.north.PM2.5 <- t.north.PM2.5[-which(t.north.PM2.5$일시 %in% rainny.day$일시), ]
+filter.t.north.SO2 <- t.north.SO2[-which(t.north.SO2$일시 %in% rainny.day$일시), ]
+
+
+filter.t.new.CO <- t.new.CO[-which(t.new.CO$일시 %in% rainny.day$일시), ]
+filter.t.new.NO2 <- t.new.NO2[-which(t.new.NO2$일시 %in% rainny.day$일시), ]
+filter.t.new.O3 <- t.new.O3[-which(t.new.O3$일시 %in% rainny.day$일시), ]
+filter.t.new.PM10 <- t.new.PM10[-which(t.new.PM10$일시 %in% rainny.day$일시), ]
+filter.t.new.PM2.5 <- t.new.PM2.5[-which(t.new.PM2.5$일시 %in% rainny.day$일시), ]
+filter.t.new.SO2 <- t.new.SO2[-which(t.new.SO2$일시 %in% rainny.day$일시), ]
+
+
+# 결측치(NA) 확인
+
+colSums(is.na(filter.t.north.CO))
+colSums(is.na(filter.t.north.NO2))
+colSums(is.na(filter.t.north.O3))
+colSums(is.na(filter.t.north.PM10))
+colSums(is.na(filter.t.north.PM2.5))
+colSums(is.na(filter.t.north.SO2))
+
+colSums(is.na(filter.t.new.CO))
+colSums(is.na(filter.t.new.NO2))
+colSums(is.na(filter.t.new.O3))
+colSums(is.na(filter.t.new.PM10))
+colSums(is.na(filter.t.new.PM2.5))
+colSums(is.na(filter.t.new.SO2))
+
+
+# 결측치(NA) 제거 
+
+flt.t.north.CO <- na.omit(filter.t.north.CO)
+flt.t.north.NO2 <- na.omit(filter.t.north.NO2)
+flt.t.north.O3 <- na.omit(filter.t.north.O3)
+flt.t.north.PM10 <- na.omit(filter.t.north.PM10)
+flt.t.north.PM2.5 <- na.omit(filter.t.north.PM2.5)
+flt.t.north.SO2 <- na.omit(filter.t.north.SO2)
+
+flt.t.new.CO <- na.omit(filter.t.new.CO)
+flt.t.new.NO2 <- na.omit(filter.t.new.NO2)
+flt.t.new.O3 <- na.omit(filter.t.new.O3)
+flt.t.new.PM10 <- na.omit(filter.t.new.PM10)
+flt.t.new.PM2.5 <- na.omit(filter.t.new.PM2.5)
+flt.t.new.SO2 <- na.omit(filter.t.new.SO2)
+
+
+#######################################################################################
+#
+#   Step 4. 상관 분석   
+#
+########################################################################################
+
+# package 호출 및 출력 옵션 세팅 
+require(MVA)
+require(psych)
+require(sjPlot)
+library(sjmisc)
+library(ggplot2)
+require(sjlabelled)
+
+
+# 풍향 정보 type 변경 : 문자형 -> 요인형 
+flt.t.north.CO$풍향 <- as.factor(flt.t.north.CO$풍향)
+flt.t.north.NO2$풍향 <- as.factor(flt.t.north.NO2$풍향)
+flt.t.north.O3$풍향 <- as.factor(flt.t.north.O3$풍향)
+flt.t.north.PM10$풍향 <- as.factor(flt.t.north.PM10$풍향)
+flt.t.north.PM2.5$풍향 <- as.factor(flt.t.north.PM2.5$풍향)
+flt.t.north.SO2$풍향 <- as.factor(flt.t.north.SO2$풍향)
+
+flt.t.new.CO$풍향 <- as.factor(flt.t.new.CO$풍향)
+flt.t.new.NO2$풍향 <- as.factor(flt.t.new.NO2$풍향)
+flt.t.new.O3$풍향 <- as.factor(flt.t.new.O3$풍향)
+flt.t.new.PM10$풍향 <- as.factor(flt.t.new.PM10$풍향)
+flt.t.new.PM2.5$풍향 <- as.factor(flt.t.new.PM2.5$풍향)
+flt.t.new.SO2$풍향 <- as.factor(flt.t.new.SO2$풍향)
+
+
+# 습도 정보 type 변경 : 문자형 -> 숫자형 
+flt.t.new.CO$습도<- as.numeric(flt.t.new.CO$습도)
+flt.t.new.NO2$습도<- as.numeric(flt.t.new.NO2$습도)
+flt.t.new.O3$습도<- as.numeric(flt.t.new.O3$습도)
+flt.t.new.PM10$습도<- as.numeric(flt.t.new.PM10$습도)
+flt.t.new.PM2.5$습도<- as.numeric(flt.t.new.PM2.5$습도)
+flt.t.new.SO2$습도<- as.numeric(flt.t.new.SO2$습도)
+
+
+# 오염물질별 기상정보와의 상관계수 분석 : 산점도 행렬 작성 
+
+pairs.panels(flt.t.north.SO2[,-1], main = "북항 SO2 농도 상관분석 (with 기상 정보)")
+pairs.panels(flt.t.north.NO2[,-1], main = "북항 NO2 농도 상관분석 (with 기상 정보)")
+pairs.panels(flt.t.north.CO[,-1], main = "북항 CO 농도 상관분석 (with 기상 정보)")
+pairs.panels(flt.t.north.PM10[,-1], main = "북항 PM10 농도 상관분석 (with 기상 정보)")
+pairs.panels(flt.t.north.PM2.5[,-1], main = "북항 PM2.5 농도 상관분석 (with 기상 정보)")
+pairs.panels(flt.t.north.O3[,-1], main = "북항 O3 농도 상관분석 (with 기상 정보)")
+
+
+pairs.panels(flt.t.new.SO2[,-1], main = "신항 SO2 농도 상관분석 (with 기상 정보)")
+pairs.panels(flt.t.new.NO2[,-1], main = "신항 NO2 농도 상관분석 (with 기상 정보)")
+pairs.panels(flt.t.new.CO[,-1], main = "신항 CO 농도 상관분석 (with 기상 정보)")
+pairs.panels(flt.t.new.PM10[,-1], main = "신항 PM10 농도 상관분석 (with 기상 정보)")
+pairs.panels(flt.t.new.PM2.5[,-1], main = "신항 PM2.5 농도 상관분석 (with 기상 정보)")
+pairs.panels(flt.t.new.O3[,-1], main = "신항 O3 농도 상관분석 (with 기상 정보)")
+
+
+# 차트 테마 변경 
+set_theme(geom.outline.color = "antiquewhite4", 
+          geom.outline.size = 1,
+          geom.label.size = 3.5, 
+          geom.label.color = "black", 
+          title.color = "black", 
+          title.size = 2, 
+          title.align = "center",
+          axis.textcolor = "blue",
+          axis.textsize.y = 0,
+          base = theme_bw())
+
+
+# 오염물질별 풍향과의 상관성 분석 : 풍향별 산포도 작성  
+
+# 북항 
+sjp.scatter(flt.t.north.SO2$풍향, flt.t.north.SO2$SO2, 
+            title = "북항 SO2 농도와 풍향의 상관관계", emph.dots = T, 
+            legend.labels = get_labels(flt.t.north.SO2)['풍향'])
+sjp.scatter(flt.t.north.NO2$풍향, flt.t.north.NO2$NO2, 
+            title = "북항 NO2 농도와 풍향의 상관관계", emph.dots = T, 
+            legend.labels = get_labels(flt.t.north.NO2)['풍향'])
+sjp.scatter(flt.t.north.CO$풍향, flt.t.north.CO$CO, 
+            title = "북항 CO 농도와 풍향의 상관관계", emph.dots = T, 
+            legend.labels = get_labels(flt.t.north.CO)['풍향'])
+sjp.scatter(flt.t.north.PM10$풍향, flt.t.north.PM10$PM10, 
+            title = "북항 PM10 농도와 풍향의 상관관계", emph.dots = T, 
+            legend.labels = get_labels(flt.t.north.PM10)['풍향'])
+sjp.scatter(flt.t.north.PM2.5$풍향, flt.t.north.PM2.5$PM2.5, 
+            title = "북항 PM2.5 농도와 풍향의 상관관계", emph.dots = T, 
+            legend.labels = get_labels(flt.t.north.PM2.5)['풍향'])
+sjp.scatter(flt.t.north.O3$풍향, flt.t.north.O3$O3, 
+            title = "북항 O3 농도와 풍향의 상관관계", emph.dots = T, 
+            legend.labels = get_labels(flt.t.north.O3)['풍향'])
+
+# 신항 
+sjp.scatter(flt.t.new.SO2$풍향, flt.t.new.SO2$SO2, 
+            title = "신항 SO2 농도와 풍향의 상관관계", emph.dots = T, 
+            legend.labels = get_labels(flt.t.new.SO2)['풍향'])
+sjp.scatter(flt.t.new.NO2$풍향, flt.t.new.NO2$NO2, 
+            title = "신항 NO2 농도와 풍향의 상관관계", emph.dots = T, 
+            legend.labels = get_labels(flt.t.new.NO2)['풍향'])
+sjp.scatter(flt.t.new.CO$풍향, flt.t.new.CO$CO, 
+            title = "신항 CO 농도와 풍향의 상관관계", emph.dots = T, 
+            legend.labels = get_labels(flt.t.new.CO)['풍향'])
+sjp.scatter(flt.t.new.PM10$풍향, flt.t.new.PM10$PM10, 
+            title = "신항 PM10 농도와 풍향의 상관관계", emph.dots = T, 
+            legend.labels = get_labels(flt.t.new.PM10)['풍향'])
+sjp.scatter(flt.t.new.PM2.5$풍향, flt.t.new.PM2.5$PM2.5, 
+            title = "신항 PM2.5 농도와 풍향의 상관관계", emph.dots = T, 
+            legend.labels = get_labels(flt.t.new.PM2.5)['풍향'])
+sjp.scatter(flt.t.new.O3$풍향, flt.t.new.O3$O3, 
+            title = "신항 O3 농도와 풍향의 상관관계", emph.dots = T, 
+            legend.labels = get_labels(flt.t.new.O3)['풍향'])
+
+
+#######################################################################################
+#
+#   Step 5. 회귀 분석   
+#
+########################################################################################
+
+# 차트 테마 설정 
+set_theme(geom.outline.color = "antiquewhite4", 
+          geom.outline.size = 1,
+          geom.label.size = 3.5, 
+          geom.label.color = "black", 
+          title.color = "black", 
+          title.size = 2, 
+          title.align = "center",
+          axis.textcolor = "blue",
+          axis.textsize.y = 1,
+          base = theme_bw())
+
+
+# 북항 : 오염물질~풍향 회귀분석   
+
+fit.north.SO2 <- lm(SO2~풍향, data = flt.t.north.SO2, na.action=na.fail)
+print(summary(fit.north.SO2))
+sjp.lm(fit.north.SO2, show.p = T, show.legend =  T)
+
+fit.north.NO2 <- lm(NO2~풍향, data = flt.t.north.NO2, na.action=na.fail)
+print(summary(fit.north.NO2))
+sjp.lm(fit.north.NO2, show.p = T, show.legend =  T)
+
+fit.north.CO <- lm(CO~풍향, data = flt.t.north.CO, na.action=na.fail)
+print(summary(fit.north.CO))
+sjp.lm(fit.north.CO, show.p = T, show.legend =  T)
+
+fit.north.PM10 <- lm(PM10~풍향, data = flt.t.north.PM10, na.action=na.fail)
+print(summary(fit.north.PM10))
+sjp.lm(fit.north.PM10, show.p = T, show.legend =  T)
+
+fit.north.PM2.5 <- lm(PM2.5~풍향, data = flt.t.north.PM2.5, na.action=na.fail)
+print(summary(fit.north.PM2.5))
+sjp.lm(fit.north.PM2.5, show.p = T, show.legend =  T)
+
+fit.north.O3 <- lm(O3~풍향, data = flt.t.north.O3, na.action=na.fail)
+print(summary(fit.north.O3))
+sjp.lm(fit.north.O3, show.p = T, show.legend =  T)
+
+
+# 북항 : 오염물질~풍속 회귀분석 
+fit.north.SO2 <- lm(SO2~풍속, data = flt.t.north.SO2, na.action=na.fail)
+print(summary(fit.north.SO2))
+sjp.lm(fit.north.SO2, show.p = T, show.legend =  T)
+
+
+fit.north.NO2 <- lm(NO2~풍속, data = flt.t.north.NO2, na.action=na.fail)
+print(summary(fit.north.NO2))
+sjp.lm(fit.north.NO2, show.p = T, show.legend =  T)
+
+fit.north.CO <- lm(CO~풍속, data = flt.t.north.CO, na.action=na.fail)
+print(summary(fit.north.CO))
+sjp.lm(fit.north.CO, show.p = T, show.legend =  T)
+
+fit.north.PM10 <- lm(PM10~풍속, data = flt.t.north.PM10, na.action=na.fail)
+print(summary(fit.north.PM10))
+sjp.lm(fit.north.PM10, show.p = T, show.legend =  T)
+
+fit.north.PM2.5 <- lm(PM2.5~풍속, data = flt.t.north.PM2.5, na.action=na.fail)
+print(summary(fit.north.PM2.5))
+plot_model(fit.north.PM2.5, show.p = T, show.legend =  T)
+
+fit.north.O3 <- lm(O3~풍속, data = flt.t.north.O3, na.action=na.fail)
+print(summary(fit.north.O3))
+sjp.lm(fit.north.O3, show.p = T, show.legend =  T)
+
+
+# 북항 : 오염물질~온도  회귀분석 
+fit.north.SO2 <- lm(SO2~온도, data = flt.t.north.SO2, na.action=na.fail)
+print(summary(fit.north.SO2))
+sjp.lm(fit.north.SO2, show.p = T, show.legend =  T)
+plot_model(fit.north.SO2, show.p = T, show.legend =  T)
+
+fit.north.NO2 <- lm(NO2~온도, data = flt.t.north.NO2, na.action=na.fail)
+print(summary(fit.north.NO2))
+sjp.lm(fit.north.NO2, show.p = T, show.legend =  T)
+plot_model(fit.north.NO2, show.p = T, show.legend =  T)
+
+fit.north.CO <- lm(CO~온도, data = flt.t.north.CO, na.action=na.fail)
+print(summary(fit.north.CO))
+sjp.lm(fit.north.CO, show.p = T, show.legend =  T)
+plot_model(fit.north.CO, show.p = T, show.legend =  T)
+
+fit.north.PM10 <- lm(PM10~온도, data = flt.t.north.PM10, na.action=na.fail)
+print(summary(fit.north.PM10))
+sjp.lm(fit.north.PM10, show.p = T, show.legend =  T)
+plot_model(fit.north.PM10, show.p = T, show.legend =  T)
+
+
+fit.north.PM2.5 <- lm(PM2.5~온도, data = flt.t.north.PM2.5, na.action=na.fail)
+print(summary(fit.north.PM2.5))
+sjp.lm(fit.north.PM2.5, show.p = T, show.legend =  T)
+plot_model(fit.north.PM2.5, show.p = T, show.legend =  T)
+
+fit.north.O3 <- lm(O3~온도, data = flt.t.north.O3, na.action=na.fail)
+print(summary(fit.north.O3))
+sjp.lm(fit.north.O3, show.p = T, show.legend =  T)
+plot_model(fit.north.O3, show.p = T, show.legend =  T)
+
+
+# 북항 : 오염물질~습도 회귀분석 
+fit.north.SO2 <- lm(SO2~습도, data = flt.t.north.SO2, na.action=na.fail)
+print(summary(fit.north.SO2))
+sjp.lm(fit.north.SO2, show.p = T, show.legend =  T)
+plot_model(fit.north.SO2, show.p = T, show.legend =  T)
+
+
+fit.north.NO2 <- lm(NO2~습도, data = flt.t.north.NO2, na.action=na.fail)
+print(summary(fit.north.NO2))
+sjp.lm(fit.north.NO2, show.p = T, show.legend =  T)
+plot_model(fit.north.NO2, show.p = T, show.legend =  T)
+
+fit.north.CO <- lm(CO~습도, data = flt.t.north.CO, na.action=na.fail)
+print(summary(fit.north.CO))
+sjp.lm(fit.north.CO, show.p = T, show.legend =  T)
+plot_model(fit.north.CO, show.p = T, show.legend =  T)
+
+fit.north.PM10 <- lm(PM10~습도, data = flt.t.north.PM10, na.action=na.fail)
+print(summary(fit.north.PM10))
+sjp.lm(fit.north.PM10, show.p = T, show.legend =  T)
+plot_model(fit.north.PM10, show.p = T, show.legend =  T)
+
+fit.north.PM2.5 <- lm(PM2.5~습도, data = flt.t.north.PM2.5, na.action=na.fail)
+print(summary(fit.north.PM2.5))
+sjp.lm(fit.north.PM2.5, show.p = T, show.legend =  T)
+plot_model(fit.north.PM2.5, show.p = T, show.legend =  T)
+
+fit.north.O3 <- lm(O3~습도, data = flt.t.north.O3, na.action=na.fail)
+print(summary(fit.north.O3))
+sjp.lm(fit.north.O3, show.p = T, show.legend =  T)
+plot_model(fit.north.O3, show.p = T, show.legend =  T)
+
+
+
+# 북항 : 오염물질~풍향+풍속+온도+습도 회귀분석 
+fit.north.SO2 <- lm(SO2~.-일시, data = flt.t.north.SO2, na.action=na.fail)
+print(summary(fit.north.SO2))
+sjp.lm(fit.north.SO2, show.p = T, show.legend =  T)
+
+
+fit.north.NO2 <- lm(NO2~.-일시, data = flt.t.north.NO2, na.action=na.fail)
+print(summary(fit.north.NO2))
+sjp.lm(fit.north.NO2, show.p = T, show.legend =  T)
+
+fit.north.CO <- lm(CO~.-일시, data = flt.t.north.CO, na.action=na.fail)
+print(summary(fit.north.CO))
+sjp.lm(fit.north.CO, show.p = T, show.legend =  T)
+
+fit.north.PM10 <- lm(PM10~.-일시, data = flt.t.north.PM10, na.action=na.fail)
+print(summary(fit.north.PM10))
+sjp.lm(fit.north.PM10, show.p = T, show.legend =  T)
+
+fit.north.PM2.5 <- lm(PM2.5~.-일시, data = flt.t.north.PM2.5, na.action=na.fail)
+print(summary(fit.north.PM2.5))
+sjp.lm(fit.north.PM2.5, show.p = T, show.legend =  T)
+
+fit.north.O3 <- lm(O3~.-일시, data = flt.t.north.O3, na.action=na.fail)
+print(summary(fit.north.O3))
+sjp.lm(fit.north.O3, show.p = T, show.legend =  T)
+
+
+# 북항 SO2, PM10, PM2.5 회귀분석 
+north.3m <- cbind(filter.t.north.SO2[,1:2], filter.t.north.PM10$PM10, filter.t.new.PM2.5$PM2.5)
+colnames(north.3m)[3:4] <- c("PM10", "PM2.5")
+north.3m <- north.3m %>% mutate(R1 = PM10/SO2, R2 = PM2.5/SO2)
+
+plot(north.3m$SO2, north.3m$PM10)
+lm.SO2.PM10 <- lm(PM10~SO2, north.3m)
+print(summary(lm.SO2.PM10))
+plot(lm.SO2.PM10)
+
+plot(north.3m$SO2, north.3m$PM2.5)
+lm.SO2.PM2.5 <- lm(PM2.5~SO2, north.3m)
+print(summary(lm.SO2.PM2.5))
+plot(lm.SO2.PM2.5)
+
+
+
+# 신항 : 오염물질~풍향 회귀분석   
+
+fit.new.SO2 <- lm(SO2~풍향, data = flt.t.new.SO2, na.action=na.fail)
+print(summary(fit.new.SO2))
+sjp.lm(fit.new.SO2, show.p = T, show.legend =  T)
+
+fit.new.NO2 <- lm(NO2~풍향, data = flt.t.new.NO2, na.action=na.fail)
+print(summary(fit.new.NO2))
+sjp.lm(fit.new.NO2, show.p = T, show.legend =  T)
+
+fit.new.CO <- lm(CO~풍향, data = flt.t.new.CO, na.action=na.fail)
+print(summary(fit.new.CO))
+sjp.lm(fit.new.CO, show.p = T, show.legend =  T)
+
+fit.new.PM10 <- lm(PM10~풍향, data = flt.t.new.PM10, na.action=na.fail)
+print(summary(fit.new.PM10))
+sjp.lm(fit.new.PM10, show.p = T, show.legend =  T)
+
+fit.new.PM2.5 <- lm(PM2.5~풍향, data = flt.t.new.PM2.5, na.action=na.fail)
+print(summary(fit.new.PM2.5))
+sjp.lm(fit.new.PM2.5, show.p = T, show.legend =  T)
+
+fit.new.O3 <- lm(O3~풍향, data = flt.t.new.O3, na.action=na.fail)
+print(summary(fit.new.O3))
+sjp.lm(fit.new.O3, show.p = T, show.legend =  T)
+
+
+# 신항 : 오염물질~풍속 회귀분석 
+fit.new.SO2 <- lm(SO2~풍속, data = flt.t.new.SO2, na.action=na.fail)
+print(summary(fit.new.SO2))
+sjp.lm(fit.new.SO2, show.p = T, show.legend =  T)
+
+
+fit.new.NO2 <- lm(NO2~풍속, data = flt.t.new.NO2, na.action=na.fail)
+print(summary(fit.new.NO2))
+sjp.lm(fit.new.NO2, show.p = T, show.legend =  T)
+
+fit.new.CO <- lm(CO~풍속, data = flt.t.new.CO, na.action=na.fail)
+print(summary(fit.new.CO))
+sjp.lm(fit.new.CO, show.p = T, show.legend =  T)
+
+fit.new.PM10 <- lm(PM10~풍속, data = flt.t.new.PM10, na.action=na.fail)
+print(summary(fit.new.PM10))
+sjp.lm(fit.new.PM10, show.p = T, show.legend =  T)
+
+fit.new.PM2.5 <- lm(PM2.5~풍속, data = flt.t.new.PM2.5, na.action=na.fail)
+print(summary(fit.new.PM2.5))
+plot_model(fit.new.PM2.5, show.p = T, show.legend =  T)
+
+fit.new.O3 <- lm(O3~풍속, data = flt.t.new.O3, na.action=na.fail)
+print(summary(fit.new.O3))
+sjp.lm(fit.new.O3, show.p = T, show.legend =  T)
+
+
+# 신항 : 오염물질~온도  회귀분석 
+fit.new.SO2 <- lm(SO2~온도, data = flt.t.new.SO2, na.action=na.fail)
+print(summary(fit.new.SO2))
+sjp.lm(fit.new.SO2, show.p = T, show.legend =  T)
+plot_model(fit.new.SO2, show.p = T, show.legend =  T)
+
+fit.new.NO2 <- lm(NO2~온도, data = flt.t.new.NO2, na.action=na.fail)
+print(summary(fit.new.NO2))
+sjp.lm(fit.new.NO2, show.p = T, show.legend =  T)
+plot_model(fit.new.NO2, show.p = T, show.legend =  T)
+
+fit.new.CO <- lm(CO~온도, data = flt.t.new.CO, na.action=na.fail)
+print(summary(fit.new.CO))
+sjp.lm(fit.new.CO, show.p = T, show.legend =  T)
+plot_model(fit.new.CO, show.p = T, show.legend =  T)
+
+fit.new.PM10 <- lm(PM10~온도, data = flt.t.new.PM10, na.action=na.fail)
+print(summary(fit.new.PM10))
+sjp.lm(fit.new.PM10, show.p = T, show.legend =  T)
+plot_model(fit.new.PM10, show.p = T, show.legend =  T)
+
+
+fit.new.PM2.5 <- lm(PM2.5~온도, data = flt.t.new.PM2.5, na.action=na.fail)
+print(summary(fit.new.PM2.5))
+sjp.lm(fit.new.PM2.5, show.p = T, show.legend =  T)
+plot_model(fit.new.PM2.5, show.p = T, show.legend =  T)
+
+fit.new.O3 <- lm(O3~온도, data = flt.t.new.O3, na.action=na.fail)
+print(summary(fit.new.O3))
+sjp.lm(fit.new.O3, show.p = T, show.legend =  T)
+plot_model(fit.new.O3, show.p = T, show.legend =  T)
+
+
+# 신항 : 오염물질~습도 회귀분석 
+fit.new.SO2 <- lm(SO2~습도, data = flt.t.new.SO2, na.action=na.fail)
+print(summary(fit.new.SO2))
+sjp.lm(fit.new.SO2, show.p = T, show.legend =  T)
+plot_model(fit.new.SO2, show.p = T, show.legend =  T)
+
+
+fit.new.NO2 <- lm(NO2~습도, data = flt.t.new.NO2, na.action=na.fail)
+print(summary(fit.new.NO2))
+sjp.lm(fit.new.NO2, show.p = T, show.legend =  T)
+plot_model(fit.new.NO2, show.p = T, show.legend =  T)
+
+fit.new.CO <- lm(CO~습도, data = flt.t.new.CO, na.action=na.fail)
+print(summary(fit.new.CO))
+sjp.lm(fit.new.CO, show.p = T, show.legend =  T)
+plot_model(fit.new.CO, show.p = T, show.legend =  T)
+
+fit.new.PM10 <- lm(PM10~습도, data = flt.t.new.PM10, na.action=na.fail)
+print(summary(fit.new.PM10))
+sjp.lm(fit.new.PM10, show.p = T, show.legend =  T)
+plot_model(fit.new.PM10, show.p = T, show.legend =  T)
+
+fit.new.PM2.5 <- lm(PM2.5~습도, data = flt.t.new.PM2.5, na.action=na.fail)
+print(summary(fit.new.PM2.5))
+sjp.lm(fit.new.PM2.5, show.p = T, show.legend =  T)
+plot_model(fit.new.PM2.5, show.p = T, show.legend =  T)
+
+fit.new.O3 <- lm(O3~습도, data = flt.t.new.O3, na.action=na.fail)
+print(summary(fit.new.O3))
+sjp.lm(fit.new.O3, show.p = T, show.legend =  T)
+plot_model(fit.new.O3, show.p = T, show.legend =  T)
+
+
+
+# 신항 : 오염물질~풍향+풍속+온도+습도 회귀분석 
+fit.new.SO2 <- lm(SO2~.-일시, data = flt.t.new.SO2, na.action=na.fail)
+print(summary(fit.new.SO2))
+sjp.lm(fit.new.SO2, show.p = T, show.legend =  T)
+
+
+fit.new.NO2 <- lm(NO2~.-일시, data = flt.t.new.NO2, na.action=na.fail)
+print(summary(fit.new.NO2))
+sjp.lm(fit.new.NO2, show.p = T, show.legend =  T)
+
+fit.new.CO <- lm(CO~.-일시, data = flt.t.new.CO, na.action=na.fail)
+print(summary(fit.new.CO))
+sjp.lm(fit.new.CO, show.p = T, show.legend =  T)
+
+fit.new.PM10 <- lm(PM10~.-일시, data = flt.t.new.PM10, na.action=na.fail)
+print(summary(fit.new.PM10))
+sjp.lm(fit.new.PM10, show.p = T, show.legend =  T)
+
+fit.new.PM2.5 <- lm(PM2.5~.-일시, data = flt.t.new.PM2.5, na.action=na.fail)
+print(summary(fit.new.PM2.5))
+sjp.lm(fit.new.PM2.5, show.p = T, show.legend =  T)
+
+fit.new.O3 <- lm(O3~.-일시, data = flt.t.new.O3, na.action=na.fail)
+print(summary(fit.new.O3))
+sjp.lm(fit.new.O3, show.p = T, show.legend =  T)
+
