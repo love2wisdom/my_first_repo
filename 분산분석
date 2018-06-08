@@ -1,0 +1,386 @@
+#######################################################################################
+#
+#                                Step 1. 북항 및 신항 관측소 기상 정보  
+#
+########################################################################################
+# 작업 폴더 지정 
+setwd("D:/bigdata_secondary/800.파일공유/804.데이터분석공유/박세훈 자료/00-1. My Work_(진행중)/SFR-014-1_신규 시나리오(대기오염물질 영향인자 상관분석)/01. Original_Data/01. 내부 Data")
+
+# 신항 관측소 월별 자료 가져오기 
+require(readxl)
+new.Oct <- read_excel("항만(부산신항)측정자료(2017.10.~2018.3.).xlsx", sheet = "10월")
+new.Nov <- read_excel("항만(부산신항)측정자료(2017.10.~2018.3.).xlsx", sheet = "11월")
+new.Dec <- read_excel("항만(부산신항)측정자료(2017.10.~2018.3.).xlsx", sheet = "12월")
+
+
+new.Oct <- data.frame(new.Oct[, c(5:9, 12:13)])
+new.Nov <- data.frame(new.Nov[, c(5:9, 12:13)])
+new.Dec <- data.frame(new.Dec[, c(5:9, 12:13)])
+
+
+str(new.Oct)
+str(new.Nov)
+str(new.Dec)
+
+
+names(new.Nov) <- c("일자", "O3", "SO2", "CO", "NO2", "PM10", "PM2.5")
+names(new.Dec) <- c("일자", "O3", "SO2", "CO", "NO2", "PM10", "PM2.5")
+names(new.Oct) <- c("일자", "O3", "SO2", "CO", "NO2", "PM10", "PM2.5")
+
+new.Oct$일자 <- as.POSIXlt(new.Oct$일자)
+new.Nov$일자 <- as.POSIXlt(new.Nov$일자)
+new.Dec$일자 <- as.POSIXlt(new.Dec$일자)
+
+
+for(i in 2:6) { 
+  new.Oct[, i] <- as.numeric(gsub("점검", "", new.Oct[,i]))
+  new.Nov[, i] <- as.numeric(gsub("점검", "", new.Nov[,i]))
+  new.Dec[, i] <- as.numeric(gsub("점검", "", new.Dec[,i]))
+}
+
+new.Oct[, 7] <- as.numeric(gsub("동불", "", new.Oct[,7]))
+new.Nov[, 7] <- as.numeric(gsub("점검", "", new.Nov[,7]))
+new.Dec[, 7] <- as.character(gsub("동불", "점검", new.Dec[,7]))
+new.Dec[, 7] <- as.numeric(gsub("점검", "", new.Dec[,7]))
+
+
+require(data.table)
+require(dplyr)
+
+new.Oct$일자 <- as.Date(new.Oct$일자)
+new.Nov$일자 <- as.Date(new.Nov$일자)
+new.Dec$일자 <- as.Date(new.Dec$일자)
+
+new.Oct <- data.table(new.Oct)
+new.Nov <- data.table(new.Nov)
+new.Dec <- data.table(new.Dec)
+
+dd.new.Oct <- new.Oct %>% group_by(일자) %>% 
+                           summarise(O3 = mean(O3, na.rm = T), SO2 = mean(SO2, na.rm = T), 
+                                     CO = mean(CO, na.rm = T), NO2 = mean(NO2, na.rm = T), 
+                                     PM10 = mean(PM10, na.rm = T), PM2.5 = mean(PM2.5, na.rm = T)) %>% 
+                           arrange(일자)
+dd.new.Nov <- new.Nov %>% group_by(일자) %>% 
+                           summarise(O3 = mean(O3, na.rm = T), SO2 = mean(SO2, na.rm = T), 
+                                     CO = mean(CO, na.rm = T), NO2 = mean(NO2, na.rm = T), 
+                                     PM10 = mean(PM10, na.rm = T), PM2.5 = mean(PM2.5, na.rm = T)) %>% 
+                           arrange(일자)
+dd.new.Dec <- new.Dec %>% group_by(일자) %>% 
+                          summarise(O3 = mean(O3, na.rm = T), SO2 = mean(SO2, na.rm = T), 
+                                    CO = mean(CO, na.rm = T), NO2 = mean(NO2, na.rm = T), 
+                                    PM10 = mean(PM10, na.rm = T), PM2.5 = mean(PM2.5, na.rm = T)) %>% 
+                           arrange(일자)
+
+
+dd.new.Oct <- dd.new.Oct[-32,]
+dd.new.Nov <- dd.new.Nov[-31,]
+dd.new.Dec <- dd.new.Dec[-32,]
+
+new.PM10 <- rbind(dd.new.Oct[,c(1,6)], dd.new.Nov[,c(1,6)], dd.new.Dec[,c(1,6)])
+new.PM2.5 <- rbind(dd.new.Oct[,c(1,7)], dd.new.Nov[,c(1,7)], dd.new.Dec[,c(1,7)])
+new.SO2 <- rbind(dd.new.Oct[,c(1,3)], dd.new.Nov[,c(1,3)], dd.new.Dec[,c(1,3)])
+new.NO2 <- rbind(dd.new.Oct[,c(1,5)], dd.new.Nov[,c(1,5)], dd.new.Dec[,c(1,5)])
+new.CO <- rbind(dd.new.Oct[,c(1,4)], dd.new.Nov[,c(1,4)], dd.new.Dec[,c(1,4)])
+new.O3 <- rbind(dd.new.Oct[,c(1,2)], dd.new.Nov[,c(1,2)], dd.new.Dec[,c(1,2)])
+
+
+colnames(new.PM10) <- c("일자", "신항")
+colnames(new.PM2.5) <- c("일자", "신항")
+colnames(new.SO2) <- c("일자", "신항")
+colnames(new.NO2) <- c("일자", "신항")
+colnames(new.CO) <- c("일자", "신항")
+colnames(new.O3) <- c("일자", "신항")
+
+new.PM10[,2] <- round(new.PM10[,2], digits = 0)
+new.PM2.5[,2] <- round(new.PM2.5[,2], digits = 0)
+new.NO2[,2] <- round(new.NO2[,2], digits = 3)
+new.SO2[,2] <- round(new.SO2[,2], digits = 3)
+new.CO[,2] <- round(new.CO[,2], digits = 2)
+new.O3[,2] <- round(new.O3[,2], digits = 3)
+
+
+str(new.PM10)
+str(new.PM2.5)
+str(new.NO2)
+str(new.SO2)
+str(new.CO)
+str(new.O3)
+
+
+# 북항 및 부산지역 다른 관측소 대기오염물질 측정 자료 불러 오기 
+db.PM10 <- read_excel("일별 부산지역 대기오염물질 관측소 자료(2017년 4분기).xlsx", sheet = "PM10")
+db.PM2.5 <- read_excel("일별 부산지역 대기오염물질 관측소 자료(2017년 4분기).xlsx", sheet = "PM2.5")
+db.SO2 <- read_excel("일별 부산지역 대기오염물질 관측소 자료(2017년 4분기).xlsx", sheet = "SO2")
+db.NO2 <- read_excel("일별 부산지역 대기오염물질 관측소 자료(2017년 4분기).xlsx", sheet = "NO2")
+db.CO <- read_excel("일별 부산지역 대기오염물질 관측소 자료(2017년 4분기).xlsx", sheet = "CO")
+db.O3 <- read_excel("일별 부산지역 대기오염물질 관측소 자료(2017년 4분기).xlsx", sheet = "O3")
+
+str(db.PM10)
+str(db.PM2.5)
+str(db.SO2)
+str(db.NO2)
+str(db.CO)
+str(db.O3)
+
+db.CO$대연동 <- as.numeric(gsub("-", "", db.CO$대연동))
+
+
+cdb.PM10 <- cbind(db.PM10, new.PM10[,2])
+cdb.PM2.5 <- cbind(db.PM2.5, new.PM2.5[,2])
+cdb.SO2 <- cbind(db.SO2, new.SO2[,2])
+cdb.NO2 <- cbind(db.NO2, new.NO2[,2])
+cdb.CO <- cbind(db.CO, new.CO[,2])
+cdb.O3 <- cbind(db.O3, new.O3[,2])
+
+
+odb.PM10 <- na.omit(cdb.PM10[,-1])
+odb.PM2.5 <- na.omit(cdb.PM2.5[,-1])
+odb.SO2 <- na.omit(cdb.SO2[,-1])
+odb.NO2 <- na.omit(cdb.NO2[,-1])
+odb.CO <- na.omit(cdb.CO[,-1])
+odb.O3 <- na.omit(cdb.O3[,-1])
+
+
+write.csv(odb.PM10, "분산분석자료_PM10.csv")
+write.csv(odb.PM2.5, "분산분석자료_PM2.5.csv")
+write.csv(odb.SO2, "분산분석자료_SO2.csv")
+write.csv(odb.NO2, "분산분석자료_NO2.csv")
+write.csv(odb.CO, "분산분석자료_CO.csv")
+write.csv(odb.O3, "분산분석자료_O3.csv")
+
+
+plot(density(odb.PM10$대연동))
+plot(density(odb.PM10$광복동))
+plot(density(odb.PM10$초량동))
+plot(density(odb.PM10$장림동))
+plot(density(odb.PM10$감만부두))
+plot(density(odb.PM10$신항))
+
+
+boxplot(odb.PM10, col = rainbow(6), main = "PM10(일평균)", xlab = "관측소", ylab = "관측값(μm/㎥)")
+boxplot(odb.PM2.5, col = rainbow(6), main = "PM2.5(일평균)", xlab = "관측소", ylab = "관측값(μm/㎥)")
+boxplot(odb.SO2, col = rainbow(6), main = "SO2(일평균)", xlab = "관측소", ylab = "관측값(ppm)")
+boxplot(odb.NO2, col = rainbow(6), main = "NO2(일평균)", xlab = "관측소", ylab = "관측값(ppm)")
+boxplot(odb.CO, col = rainbow(6), main = "CO(일평균)", xlab = "관측소", ylab = "관측값(ppm)")
+boxplot(odb.O3, col = rainbow(6), main = "O3(일평균)", xlab = "관측소", ylab = "관측값(ppm)")
+
+
+
+
+#######################################################################################
+#
+#                                Step 3. 이상치 처리 
+#
+########################################################################################
+
+# 3.1 Outliers package 적용 
+# rm.outlier()함수 에러날 때까지 반복해서 outlier()함수 실해
+require(outliers)
+
+# PM10
+boxplot(odb.PM10)
+d.PM10 <- odb.PM10
+
+outlier(d.PM10)
+d.PM10 <- rm.outlier(d.PM10)
+boxplot(d.PM10)
+
+outlier(d.PM10)
+d.PM10 <- rm.outlier(d.PM10)
+boxplot(d.PM10)
+
+outlier(d.PM10)
+d.PM10 <- rm.outlier(d.PM10)
+boxplot(d.PM10)
+
+boxplot(d.PM10, col = rainbow(6), main = "PM10(일평균)", xlab = "관측소", ylab = "관측값(μm/㎥)")
+
+
+# PM2.5
+boxplot(odb.PM2.5)
+d.PM2.5 <- odb.PM2.5
+
+outlier(d.PM2.5)
+d.PM2.5 <- rm.outlier(d.PM2.5)
+boxplot(d.PM2.5)
+
+outlier(d.PM2.5)
+d.PM2.5 <- rm.outlier(d.PM2.5)
+boxplot(d.PM2.5)
+
+outlier(d.PM2.5)
+d.PM2.5 <- rm.outlier(d.PM2.5)
+boxplot(d.PM2.5)
+
+boxplot(d.PM2.5, col = rainbow(6), main = "PM2.5(일평균)", xlab = "관측소", ylab = "관측값(μm/㎥)")
+
+
+# SO2 : : rm.outlier()함수가 바로 에러 남. 
+
+boxplot(odb.SO2)
+d.SO2 <- odb.SO2
+
+outlier(d.SO2)
+d.SO2 <- rm.outlier(d.SO2)
+boxplot(d.SO2)
+
+# NO2 : 이상치 없음. 그러나 outlier()함수와 rm.outlier()함수는 작동함. 
+# 단, 3회차 넘어가면 boxplot 그래프는 변화가 거의 없음. 
+
+boxplot(odb.NO2)
+d.NO2 <- odb.NO2
+
+outlier(d.NO2)
+d.NO2 <- rm.outlier(d.NO2)
+boxplot(d.NO2)
+
+outlier(d.NO2)
+d.NO2 <- rm.outlier(d.NO2)
+boxplot(d.NO2)
+boxplot(d.NO2, col = rainbow(6), main = "NO2(일평균)", xlab = "관측소", ylab = "관측값(ppm)")
+
+
+
+# CO : rm.outlier()함수가 바로 에러 남. 
+
+boxplot(odb.CO)
+d.CO <- odb.CO
+
+outlier(d.CO)
+d.CO <- rm.outlier(d.CO)
+boxplot(d.CO)
+
+
+# O3
+boxplot(odb.O3)
+d.O3 <- odb.O3
+
+outlier(d.O3)
+d.O3 <- rm.outlier(d.O3)
+boxplot(d.O3)
+
+outlier(d.O3)
+d.O3 <- rm.outlier(d.O3)
+boxplot(d.O3)
+
+outlier(d.O3)
+d.O3 <- rm.outlier(d.O3)
+boxplot(d.O3)
+
+outlier(d.O3)
+d.O3 <- rm.outlier(d.O3)
+boxplot(d.O3)
+boxplot(d.O3, col = rainbow(6), main = "O3(일평균)", xlab = "관측소", ylab = "관측값(ppm)")
+
+
+
+# 3.2 IQR Rule for Outliers : SO2, CO
+
+require(dplyr)
+
+# SO2
+
+boxplot(odb.SO2)
+fivenum(odb.SO2$대연동)
+UpperQ = fivenum(odb.SO2$대연동)[4]
+LowerQ = fivenum(odb.SO2$대연동)[2]
+IQR = UpperQ - LowerQ
+
+upperQutlier = odb.SO2$대연동[which(odb.SO2$대연동>UpperQ+IQR*1.5)]
+lowerQutlier = odb.SO2$대연동[which(odb.CO$대연동<LowerQ-IQR*1.5)]
+
+upperQutlier
+lowerQutlier
+
+outlier(odb.SO2$대연동)
+
+
+
+
+
+fivenum(odb.CO$장림동)
+UpperQ = fivenum(odb.CO$장림동)[4]
+LowerQ = fivenum(odb.CO$장림동)[2]
+IQR = UpperQ - LowerQ
+
+upperQutlier = odb.CO$장림동[which(odb.CO$장림동>UpperQ+IQR*1.5)]
+lowerQutlier = odb.CO$장림동[which(odb.CO$장림동<LowerQ-IQR*1.5)]
+
+upperQutlier
+lowerQutlier
+
+outlier(odb.CO$장림동)
+
+
+
+d.CO <- odb.CO %>% filter(odb.CO$장림동 != outlier(odb.CO$장림동))
+
+
+
+boxplot(d.PM10, col = rainbow(6), main = "PM10(일평균)", xlab = "관측소", ylab = "관측값(μm/㎥)")
+boxplot(d.PM2.5, col = rainbow(6), main = "PM2.5(일평균)", xlab = "관측소", ylab = "관측값(μm/㎥)")
+boxplot(d.SO2, col = rainbow(6), main = "SO2(일평균)", xlab = "관측소", ylab = "관측값(ppm)")
+boxplot(d.NO2, col = rainbow(6), main = "NO2(일평균)", xlab = "관측소", ylab = "관측값(ppm)")
+boxplot(d.CO, col = rainbow(6), main = "CO(일평균)", xlab = "관측소", ylab = "관측값(ppm)")
+boxplot(d.O3, col = rainbow(6), main = "O3(일평균)", xlab = "관측소", ylab = "관측값(ppm)")
+
+# 분산분석 결과표 작성용
+m.PM10 <- as.matrix(d.PM10); mean(m.PM10)
+m.PM2.5 <- as.matrix(d.PM2.5); mean(m.PM2.5)
+m.SO2 <- as.matrix(d.SO2); mean(m.SO2)
+m.NO2 <- as.matrix(d.NO2); mean(m.NO2)
+m.CO <- as.matrix(d.CO); mean(m.CO)
+m.O3 <- as.matrix(d.O3); mean(m.O3)
+
+summary(d.PM10)
+summary(d.PM2.5)
+summary(d.SO2)
+summary(d.NO2)
+summary(d.CO)
+summary(d.O3)
+
+#######################################################################################
+#
+#                                Step 4. 분산분석 실행  
+#
+########################################################################################
+
+
+aov.db.PM10 <- stack(d.PM10)
+head(aov.db.PM10)
+res.PM10 <- aov(values~ind, data = aov.db.PM10)
+summary(res.PM10)
+
+
+aov.db.PM2.5 <- stack(d.PM2.5)
+head(aov.db.PM2.5)
+res.PM2.5 <- aov(values~ind, data = aov.db.PM2.5)
+summary(res.PM2.5)
+
+
+aov.db.SO2 <- stack(d.SO2)
+head(aov.db.SO2)
+res.SO2 <- aov(values~ind, data = aov.db.SO2)
+summary(res.SO2)
+
+
+aov.db.NO2 <- stack(d.NO2)
+head(aov.db.NO2)
+res.NO2 <- aov(values~ind, data = aov.db.NO2)
+summary(res.NO2)
+
+
+aov.db.CO <- stack(d.CO)
+head(aov.db.CO)
+res.CO <- aov(values~ind, data = aov.db.CO)
+summary(res.CO)
+
+
+aov.db.O3 <- stack(d.O3)
+head(aov.db.O3)
+res.O3 <- aov(values~ind, data = aov.db.O3)
+summary(res.O3)
+
+
+
+
