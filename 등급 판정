@@ -1,0 +1,176 @@
+#########################################################################################################################
+#
+#                                Step 0. 대기오염물질별 등급 결정 함수 생성 
+#
+# 1. decision.grade 함수 :  오염물질농도 측정치 벡터와 오염물질명을 인자로 받아서 '좋음'~'매우나쁨' 결과를 팩터로 반환 
+# 2. CO.grade 함수 : decision.grade 함수의 하위 함수, CO 농도값을 인자로 받아서 판별 결과를 텍스트 벡터로 반환 
+# 3. SO2.grade 함수 : decision.grade 함수의 하위 함수, SO2 농도값을 인자로 받아서 판별 결과를 텍스트 벡터로 반환 
+# 4. NO2.grade 함수 : decision.grade 함수의 하위 함수, NO2 농도값을 인자로 받아서 판별 결과를 텍스트 벡터로 반환 
+# 5. PM10.grade 함수 : decision.grade 함수의 하위 함수, PM10 농도값을 인자로 받아서 판별 결과를 텍스트 벡터로 반환  
+# 6. PM2.5.grade 함수 : decision.grade 함수의 하위 함수, PM2.5 농도값을 인자로 받아서 판별 결과를 텍스트 벡터로 반환
+#
+#########################################################################################################################
+CO.grade <- function(x) {
+  n <- length(x)
+  y <- vector(mode = "character")
+  for(i in 1:n) {
+    if (x[i] <= 2) {y[i] = "좋음"} 
+    else if (x[i] > 2 & x[i] <= 9){y[i] = "보통"} 
+    else if (x[i] > 9 & x[i] <= 15){y[i]= "나쁨" }
+    else {y[i] = "매우 나쁨"}
+  } 
+  return(y)
+}
+
+
+SO2.grade <- function(x) {
+  n <- length(x)
+  y <- vector(mode = "character")
+  for(i in 1:n) {
+  if (x[i] <= 0.02) {y[i] = "좋음"} 
+  else if (x[i] > 0.02 & x[i] <= 0.05){y[i] = "보통"} 
+  else if (x[i] > 0.05 & x[i] <= 0.15){y[i] = "나쁨"}
+  else {y[i] = "매우 나쁨"}
+  }
+  return(y)
+}
+
+
+NO2.grade <- function(x) {
+  n <- length(x)
+  y <- vector(mode = "character")
+  for(i in 1:n) {
+    if (x[i] <= 0.03) {y[i] = "좋음"} 
+    else if (x[i] > 0.03 & x[i] <= 0.06){y[i] = "보통"} 
+    else if (x[i] > 0.06 & x[i] <= 0.2){y[i] = "나쁨"}
+    else {y[i] = "매우 나쁨"}
+  }
+  return(y)
+}
+
+PM10.grade <- function(x) {
+  n <- length(x)
+  y <- vector(mode = "character")
+  for(i in 1:n) {
+    if (x[i] <= 30) {y[i] = "좋음"} 
+    else if (x[i] > 30 & x[i] <= 80){y[i] = "보통"} 
+    else if (x[i] > 80 & x[i] <= 150){y[i] = "나쁨"}
+    else {y[i] = "매우 나쁨"}
+  }
+  return(y)
+}
+
+
+PM2.5.grade <- function(x) {
+  n <- length(x)
+  y <- vector(mode = "character")
+  for(i in 1:n) {
+    if (x[i] <= 15) {y[i] = "좋음"} 
+    else if (x[i] > 13 & x[i] <= 35){y[i] = "보통"} 
+    else if (x[i] > 35 & x[i] <= 75){y[i] = "나쁨"}
+    else {y[i] = "매우 나쁨"}
+  }
+  return(y)
+}
+
+
+decision.grade <- function (x, material = NULL, ...) {
+grade <- switch (material, 
+                 CO = {CO.grade(x)}, 
+                 SO2 = {SO2.grade(x)}, 
+                 NO2 = {NO2.grade(x)}, 
+                 PM10 = {PM10.grade(x)}, 
+                 PM2.5 = {PM2.5.grade(x)})
+return(as.factor(grade))  
+}
+
+#########################################################################################################################
+#
+#                                Step 1. 판별 분석용 dataframe 생성 
+#
+# 1. t3 dataframe 시리즈에 농도 판별결과와 요일 열을 추가하여 판별분석용 데이터프레임(lda 시리즈) 생성 
+#
+#########################################################################################################################
+
+require(lubridate)
+
+# 오염물질별 농도 판별 
+t3.north.CO$GRADE <- decision.grade(t3.north.CO$CO, "CO")
+t3.north.SO2$GRADE <- decision.grade(t3.north.SO2$SO2, "SO2")
+t3.north.NO2$GRADE <- decision.grade(t3.north.NO2$NO2, "NO2")
+t3.north.PM10$GRADE <- decision.grade(t3.north.PM10$PM10, "PM10")
+t3.north.PM2.5$GRADE <- decision.grade(t3.north.PM2.5$PM2.5, "PM2.5")
+
+t3.new.CO$GRADE <- decision.grade(t3.new.CO$CO, "CO")
+t3.new.SO2$GRADE <- decision.grade(t3.new.SO2$SO2, "SO2")
+t3.new.NO2$GRADE <- decision.grade(t3.new.NO2$NO2, "NO2")
+t3.new.PM10$GRADE <- decision.grade(t3.new.PM10$PM10, "PM10")
+t3.new.PM2.5$GRADE <- decision.grade(t3.new.PM2.5$PM2.5, "PM2.5")
+
+# 일자별 요일 생성 
+lda.north.CO <- cbind(t3.north.CO, weekdays(t3.north.CO$일시))
+lda.north.SO2 <- cbind(t3.north.SO2, weekdays(t3.north.SO2$일시))
+lda.north.NO2 <- cbind(t3.north.NO2, weekdays(t3.north.NO2$일시))
+lda.north.PM10 <- cbind(t3.north.PM10, weekdays(t3.north.PM10$일시))
+lda.north.PM2.5 <- cbind(t3.north.PM2.5, weekdays(t3.north.PM2.5$일시))
+
+lda.new.CO <- cbind(t3.new.CO, weekdays(t3.new.CO$일시))
+lda.new.SO2 <- cbind(t3.new.SO2, weekdays(t3.new.SO2$일시))
+lda.new.NO2 <- cbind(t3.new.NO2, weekdays(t3.new.NO2$일시))
+lda.new.PM10 <- cbind(t3.new.PM10, weekdays(t3.new.PM10$일시))
+lda.new.PM2.5 <- cbind(t3.new.PM2.5, weekdays(t3.new.PM2.5$일시))
+
+# 요일열 이름 변경 
+colnames(lda.north.CO)[11] <- c("요일")
+colnames(lda.north.SO2)[11] <- c("요일")
+colnames(lda.north.NO2)[11] <- c("요일")
+colnames(lda.north.PM10)[11] <- c("요일")
+colnames(lda.north.PM2.5)[11] <- c("요일")
+
+colnames(lda.new.CO)[13] <- c("요일")
+colnames(lda.new.SO2)[13] <- c("요일")
+colnames(lda.new.NO2)[13] <- c("요일")
+colnames(lda.new.PM10)[13] <- c("요일")
+colnames(lda.new.PM2.5)[13] <- c("요일")
+
+
+# 정제 db 출력 
+write.csv(lda.north.PM10, "판별분석용_정보취합_북항_PM10.csv")
+write.csv(lda.north.PM2.5, "판별분석용_정보취합_북항_PM2.5.csv")
+write.csv(lda.north.SO2, "판별분석용_정보취합_북항_SO2.csv")
+write.csv(lda.north.NO2, "판별분석용_정보취합_북항_NO2.csv")
+write.csv(lda.north.CO, "판별분석용_정보취합_북항_CO.csv")
+
+write.csv(lda.new.PM10, "판별분석용_정보취합_신항_PM10.csv")
+write.csv(lda.new.PM2.5, "판별분석용_정보취합_신항_PM2.5.csv")
+write.csv(lda.new.SO2, "판별분석용_정보취합_신항_SO2.csv")
+write.csv(lda.new.NO2, "판별분석용_정보취합_신항_NO2.csv")
+write.csv(lda.new.CO, "판별분석용_정보취합_신항_CO.csv")
+
+
+
+
+#########################################################################################################################
+#
+#                                Step 2. 선형 판별 분석  
+# 1. 모집단 등분산 검정 실시
+# 2. 선형판별 분석 
+# 3. 집단별 히스트로그램 표현 
+# 4. 판별률(정비율) 계산 
+# 5. 오분류 계산 
+# 6. 시각화 
+# 7. 판별예측 
+#
+#########################################################################################################################
+
+require(biotools)
+require(MASS)
+
+# 모집단 등분산 검정 
+
+colSums(is.na(lda.north.CO))
+
+rs <- lda(CO~풍향+풍속+CO_BPT+CO_HBCT+CO_DPCT+요일, data = lda.north.CO)
+rs
+
+boxM()
