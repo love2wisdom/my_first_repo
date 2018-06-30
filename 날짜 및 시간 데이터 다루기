@@ -1,3 +1,56 @@
+# 현재 날짜 표시하기 
+Sys.time()
+date()
+lubrigate::now()
+
+Weekdays(Sys.time())
+months(Sys.time())
+format(Sys.time(), "%letter")
+
+%a Day of the week, abbreviated                                Mon
+%A Day of the week, full name                                 Monday
+%b Month, abbreviated                                          Dec
+%B Month, full name                                          December
+%c Date and time, locale-specific                  Mon 20 Dec 2010 13:06:24 CEST
+%d Day of the month (01–31)                                    20
+%H Hours (0–24)                                                13
+%I Hours (0–12)                                                01
+%j Day of the year (001–366)                                   354
+%m Month (01–12)                                               12
+%M Minutes (00–59)                                             06
+%S Seconds (00–61), with 2 “leap seconds”                      24
+%U Week of the year (00–53); the 1st Sundayis
+   counted as day 1 of week 1                                  51
+%w Day of the week (0–6); Sunday is 0                           1
+%W Week of the year (00–53); the 1st Monday is
+   counted as day 1 of week 1                                  51
+%x Date, locale-specific                                    2010-12-20
+%X Time, locale-specific                                     13:06:24
+%y Year without the century                                    10
+%Y Year with the century                                      2010
+%z Time offset from Greenwich; ’0800’ is 8 h West
+   of Greenwich                                               +0100
+%Z Time zone as a character string (output only)               CEST
+
+
+# 데이터 정제 전에 반드시 날짜와 시간 정보를 POSIXlt 또는 POSIXct class로 변환시킬 것!!!
+# as.POSIXct() 함수 : 1970-01-01을 시점으로 지정된 날짜(또는 시각)까지의 시간을 초 단위의 숫자 벡터로 반환 
+# as.POSIXlt() 함수 : 다음과 같은 정보를 가진 벡터의 리스트를 반환 
+sec 0–61: seconds
+min 0–59: minutes
+hour 0–23: hours
+mday 1–31: day of the month
+mon 0–11: number of months since the 1st month of the year
+year : number of years since 1900
+wday 0–6: day of the week, starting on Sunday
+yday 0–365: day of the year
+isdst : Daylight Saving Time (DST) flag. Positive if DST is observed,
+zero otherwise (negative if unknown)
+
+
+
+
+
 # 1. 날짜 자료를 정수로 다루기  
 
 date.lookup <- format(seq(as.Date("2000-01-01"), as.Date("2010-12-31"), by = "1 day"))
