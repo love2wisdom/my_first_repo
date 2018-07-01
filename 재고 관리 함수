@@ -154,6 +154,14 @@ sm.db <- data.frame( PART_CD = c("CAMKA007HS", "CAMKA007HS", "CAMKA007HS", "CAMK
 
 
 
+##############################################################################
+#
+#                            단계 0. 사용자 함수 생성    
+#
+##############################################################################
+require(dplyr)
+require(lubridate)
+require(magicfor)
 
 # 부품별 입출고 이력 작성 함수 (완성)
 # x : 부품 목록 벡터 
@@ -163,9 +171,10 @@ inven.history <- function(x, y, z) {
   n <- length(x)
   list.of.dfs <- list() 
   
-  for (i in 1:n) {
+  for(i in 1:n) {
     df <- y %>% filter(PART_CD == x[i]) %>% select(PART_CD, IO_IOCD, IO_IODT, IO_EA, IO_DAN) %>% 
       mutate(PD_NCHO = z$PD_NCHO[which(z$PART_CD == x[i])], 
+             PD_GRADE = z$PD_GRADE[which(z$PART_CD == x[i])], 
              IO_IODT = as.Date(IO_IODT),
              IN_DAY = ifelse(IO_IOCD %in% c("AI", "IN", "RI"), IO_IODT, NA),
              OUT_DAY = ifelse(IO_IOCD %in% c("AO", "OT", "RO"), IO_IODT, NA), 
@@ -185,37 +194,54 @@ inven.history <- function(x, y, z) {
 # y : 조회 기간의 종료 일자 : Date 형식 "YY-m-d" 예) "2017-12-31"
 decide.last.date <- function(x, y) {
   n <- nrow(x)
-  last.time <- max(x$IO_IODT)
-  end.time <- y
-  
-  while (last.time > end.time) {
-    last.time <- x$IO_IODT[n - 1]
+  if(n < 1) {
+    print("No data!!")
+    return(NULL)
+  } else if (n == 1) {
+    last.time <- max(x$IO_IODT)
+    return(last.time)
+  } else {
+    last.time <- max(x$IO_IODT)
+    end.time <- y
+    
+    while(last.time > end.time) {
+    last.time <- x$IO_IODT[n-1]
     n <- n - 1
-  }
+    }
   return(last.time)
+  }
 }
 
-decide.last.date(sm.db, "2017-12-31")
-
+# 테스트 
+decide.last.date(new.inven.b[[12]], "1900-01-01")
 
 
 # decide.first.date function : 최초 일자 결정 함수  (완성)
 # x : 부품별 입출고 이력 data.frame :  입력 예시) inven.b[[12]] 
-# y : 조회 기간의 종료 일자 : Date 형식 "YY-m-d" 예) "2017-12-31"
+# y : 조회 기간의 시작 일자 : Date 형식 "YY-m-d" 예) "2009-12-31"
 decide.first.date <- function(x, y) {
   n <- nrow(x)
+  if(n < 1) {
+    print("No data!!")
+    return(NULL)
+  } else if (n == 1) {
+    first.time <- min(x$IO_IODT)
+    return(first.time)
+  } else {
   first.time <- min(x$IO_IODT)
   start.time <- y
   counter = 1
   
-  while (first.time < start.time) {
-    first.time <- x$IO_IODT[counter + 1]
+  while(first.time < start.time) {
+    first.time <- x$IO_IODT[counter+1]
     counter <- counter + 1 
-  }
+    }
   return(first.time)
+  }
 }
 
-decide.first.date(sm.db, "2011-1-1")
+#테스트 
+decide.first.date(inven.b[[12]], "2010-1-1")
 
 
 # first rolled stock estimatation function : 최초 이월 재고량 계산 함수(완성)
@@ -225,14 +251,14 @@ first.rolled.stock <- function(x, y) {
   
   start.time <- min(x$IO_IODT)
   end.time <- decide.last.date(x, y)
-  n <- x %>% filter(x$IO_IODT >= start.time & x$IO_IODT <= end.time) %>% 
-    select(x$IO_IODT) %>% arrange() %>% tally()
+  n <- x %>% filter(IO_IODT >= start.time & IO_IODT <= end.time) %>% 
+             select(IO_IODT) %>% arrange() %>% tally()
   n <- as.numeric(n)
   initial.stock <- 0
   stock <- 0
   add <- 0
   
-  for (i in 1:n) {
+  for(i in 1:n) {
     add <- ifelse(x$IN_STK[i] == 0, -x$OUT_STK[i], x$IN_STK[i])  
     stock <- initial.stock + stock + add 
     cat(i ," 번째 재고량 : ", stock, "입고량 : ", x$IN_STK[i], "출고량 : ", x$OUT_STK[i], "\n", sep = "    ")
@@ -240,7 +266,10 @@ first.rolled.stock <- function(x, y) {
   return(stock)
 }
 
-first.rolled.stock(sm.db, "2014-02-02")
+# 테스트
+first.rolled.stock(inven.b[[9]], "2014-02-02")
+
+
 
 # stock estimatation function : 재고량 계산 함수
 # x : 부품별 입출고이력 data.frame  :  입력 예시) inven.b[[12]] 
@@ -263,7 +292,7 @@ stock.estimate <- function(x, y, z) {
   print(initial.stock)
   stock <- 0
   add <- 0
-
+  
   
   for (i in m-n+1:n) {
     add <- ifelse(x$IN_STK[i] == 0, -x$OUT_STK[i], x$IN_STK[i])  
@@ -276,51 +305,41 @@ stock.estimate <- function(x, y, z) {
   return(stock)
 }
 
-stock.estimate(sm.db, "2009-01-01", "2015-12-31")
+# 테스트
+stock.estimate(inven.b[[12]], "2009-01-01", "2015-12-31")
 
 # 주문당 비용 계산 함수 
+# x : 부품별 입출고이력 data.frame  :  입력 예시) inven.b[[12]] 
+# y : 시작 일자 : Date 형식 "YY-m-d" 예) "2012-12-28"
+# z : 종료 일자 : Date 형식 "YY-m-d" 예) "2017-12-31"
+# IO_IOCD  = 'IN', 'RI' 만 대상으로 함. 
+
 cpo.estimate <- function(x, y, z) {
   start.time <- decide.first.date(x, y)
   end.time <- decide.last.date(x, z)
   inter <- start.time %--% end.time
-  db <- x %>% filter(x$IO_IODT %within% inter) %>%  arrange(x$IO_IODT)
-  
-  n <- nrow(db)
-  count.in <- db %>% filter(x$IO_IOCD == "IN") %>%  summarize(SUM = sum(x$IO_EA))
-  count.ri <- db %>% filter(x$IO_IOCD == "RI") %>%  summarize(SUM = sum(x$IO_EA))
-  
-  cat("n : ", n, "count.in : ", count.in, "count.ri : ", "\n", sep = "   ")
-  
-  add.in <- 0; add.ri <- 0; dan.in <- 0; dan.ri <- 0
-  cost.in <- 0; cost.ri <- 0; cost.total <- 0 
-  
-  cpo <- vector()
-  
-  for (i in 1:n) {
-    add.in <- ifelse(x$IO_IOCD[i] == "IN", x$IO_EA[i], 0) 
-    add.ri <- ifelse(x$IO_IOCD[i] == "RI", x$IO_EA[i], 0)
-    dan.in <- ifelse(x$IO_IOCD[i] == "IN", x$IO_DAN[i], 0) 
-    dan.ri <- ifelse(x$IO_IOCD[i] == "RI", x$IO_DAN[i], 0)
-    
-    cost.in <- add.in * dan.in
-    cost.ri <- add.ri * dan.in
-    cost.total <- cost.in + cost.ri 
-    
-    add.in <- 0
-    add.ri <- 0
-    dan.in <- 0
-    dan.ri <- 0
-  }
-  cpo[1] <- cost.in / count.in 
-  cpo[2] <- cost.ri / count.ri
-  cpo[3] <- cost.total / (count.in + count.ri)
+  n <- x %>% filter(x$IO_IODT %within% inter) %>%  arrange() %>% tally()
+  n <- as.numeric(n)
+  cpo <- list()
+
+  cost.in <- x %>% filter(IO_IODT %within% inter & IO_IOCD == "IN") %>%  
+                   mutate(COST = IO_DAN * IN_STK) %>%  
+                   summarize(PART_CD = unique(PART_CD), SUM = sum(IN_STK), SUM_COST = sum(COST))
+  cost.ri <- x %>% filter(IO_IODT %within% inter & IO_IOCD == "RI") %>%  
+                   mutate(COST = IO_DAN * IN_STK) %>%  
+                   summarize(PART_CD = unique(PART_CD), SUM = sum(IN_STK), SUM_COST = sum(COST))       
+                    
+
+  cpo.in <- cost.in$SUM_COST / cost.in$SUM 
+  cpo.ri <- cost.ri$SUM_COST / cost.ri$SUM
+  cpo.total <- (cost.in$SUM_COST + cost.ri$SUM_COST) / (cost.in$SUM + cost.ri$SUM)
+  cpo <- list(cpo.in, cpo.ri, cpo.total)
   return(cpo)
 }
 
-cpo.estimate(sm.db, "2009-01-01", "2015-12-31")
+# 테스트 
+cpo.estimate(inven.b[[12]], "2009-01-01", "2015-12-31")
 
-
-sm.db
 
 # <<Estimation data for Planning & Management Inventory Function>>  
 #
@@ -338,38 +357,171 @@ sm.db
 # ROP 함수 인자 : SVC_LV(서비스 레벨 : 0~1), YR_AVG_DMD(연 평균 수요량), 
 #                 SD(수요량 표준 편차), LD_TM(리드 타임)
 # SS 함수 인자 : SVC_LV(서비스 레벨 : 0~1), SD(수요량 표준 편차), LD_TM(리드 타임)
-pmi.data.estimate <- function(x, y, z) {
-
+pmi.data.estimate <- function(x, y, z, sl = 0.9) {
+  
   start.time <- decide.first.date(x, y)
   end.time <- decide.last.date(x, z)
   inter <- start.time %--% end.time
+
+  cost.per.order <- cpo.estimate(x, y, z)[[3]]
+  hold.cost <- 0.025 * cost.per.order
   
   aggre <- vector()
-  aggre <- x %>% filter(OUT_DAY %within% inter) %>% 
-                  select(PART_CD, OUT_DAY, OUT_STK) %>% 
-                  summarize(PART_CD = unique(PART_CD),
-                            STRAT_DAY = start.time, 
-                            END_DAY = end.time,
-                            DMD_SUM = sum(OUT_STK), 
-                            TIME_LEN = time_length(inter), 
-                            YR_DMD = round(DMD_SUM/(TIME_LEN/(60*60*24*365)), 3),
-                            ORD_COST = 0, 
-                            HLD_COST = 0, 
-                            SHT_PNT_COST = 0,
-                            SVC_LV = 0, 
-                            SD = round(sd(OUT_STK), 3), 
-                            LD_TM = 1) %>% 
-                  arrange(PART_CD)
+  aggre <- x %>% filter(IO_IODT %within% inter) %>% 
+                 summarize(PART_CD = unique(PART_CD),
+                           STRAT_DAY = start.time, 
+                           END_DAY = end.time,
+                           DMD_SUM = sum(OUT_STK), 
+                           TIME_LEN = time_length(inter), 
+                           YR_DMD = round(DMD_SUM/(TIME_LEN/(60*60*24*365)), 3),
+                           ORD_COST = cost.per.order, 
+                           HLD_COST = hold.cost, 
+                           SHT_PNT_COST = 0,
+                           SVC_LV = sl, 
+                           SD = round(sd(OUT_STK), 3), 
+                           LD_TM = 1) %>% 
+                 arrange(PART_CD)
   return(aggre)
 }
 
-pmi.data.estimate(sm.db, "2009-10-10", "2015-12-10")
-
-sm.db
-
+#테스트 
+pmi.data.estimate(inven.b[[1]], "2009-10-10", "2015-12-10")
 
 
+inven.b[[1]]%>% filter(IO_IODT %within% inter & IO_IOCD == "IN") %>%  
+  mutate(COST = IO_DAN * IN_STK) %>%  
+  summarize(SUM = sum(IN_STK), SUM_COST = sum(COST))
 
+##############################################################################
+#
+#                            단계 1. SUMMARY OF T_PART_CON TABLE   
+#
+##############################################################################
+
+# 부품코드 : PART_CD 
+part.cd <- as.vector(unique(db.t.part.con$PART_CD))
+names(part.cd) <- c("PART_CD")
+
+part.day.in.01 <- db.t.part.con %>% filter(PART_CD %in% part.cd) %>% 
+                                    group_by(PART_CD, IN_DAY) %>% tally()
+part.day.in.02 <- db.t.part.con %>% filter(PART_CD %in% part.cd) %>% 
+                                    group_by(PART_CD, IO_IOCD, IN_DAY) %>% tally()
+part.day.in.03 <- db.t.part.con %>% filter(PART_CD %in% part.cd) %>% 
+                                    group_by(PART_CD, IO_IOCD, IO_DAN, IN_DAY) %>% tally()
+
+
+part.day.out <- db.t.part.con %>% filter(PART_CD %in% part.cd & IO_RESULT == "Y") %>% 
+                                  group_by(PART_CD, IO_IOCD, OUT_DAY) %>% tally()
+
+
+##############################################################################
+#
+#                            단계 2. 부품별 TABEL 생성    
+#
+##############################################################################
+
+
+part.cd.ptio <- as.data.frame(unique(db.t.ptio$PART_CD))
+names(part.cd.ptio) <- c("PART_CD")
+
+grade.a <- as.data.frame(unique(db.t.ptdt %>% filter(PD_GRADE == "A") %>% select(PART_CD)))
+names(grade.a) <- c("A_GRADE")
+grade.b <- as.data.frame(unique(db.t.ptdt %>% filter(PD_GRADE == "B") %>% select(PART_CD)))
+names(grade.b) <- c("B_GRADE")
+grade.c <- as.data.frame(unique(db.t.ptdt %>% filter(PD_GRADE == "C") %>% select(PART_CD)))
+names(grade.c) <- c("C_GRADE")
+
+
+ptio.grade.all <- db.t.ptio %>% filter(PART_CD %in% c(grade.a$A_GRADE, grade.b$B_GRADE, grade.c$C_GRADE)) %>% arrange(PART_CD)
+ptio.grade.all <- db.t.ptio %>% filter(PART_CD %in% part.cd.ptio$PART_CD) %>% arrange(PART_CD)
+
+ptio.grade.a <- db.t.ptio %>% filter(PART_CD %in% grade.a$A_GRADE) %>% arrange(PART_CD)
+ptio.grade.b <- db.t.ptio %>% filter(PART_CD %in% grade.b$B_GRADE) %>% arrange(PART_CD)
+ptio.grade.c <- db.t.ptio %>% filter(PART_CD %in% grade.c$C_GRADE) %>% arrange(PART_CD)
+
+
+inven.a <- inven.history(grade.a$A_GRADE, ptio.grade.a, db.t.ptdt)
+inven.b <- inven.history(grade.b$B_GRADE, ptio.grade.b, db.t.ptdt)
+inven.c <- inven.history(grade.c$C_GRADE, ptio.grade.c, db.t.ptdt)
+inven.all <- inven.history(part.cd.ptio$PART_CD, ptio.grade.all, db.t.ptdt)
+
+
+##############################################################################
+#
+#                     단계 3. Generate DB for SCperf package     
+#
+##############################################################################
+
+require(data.table)
+
+except.num <- vector()
+
+# A 등급 부품 DB 만들기 : 에러 발생 
+n <- length(inven.a)
+db.scp.a <- data.table()
+for(i in 1:n) {
+  if (nrow(inven.a[[i]]) != 0) {} 
+  else {
+    cat(i, "번째 list는 데이터가 없음.", "\n", sep = " ")
+    except.num[i] <- i }
+}
+
+new.inven.a <- inven.a[which(is.na(except.num))] 
+m <- length(new.inven.a)
+
+for(i in 1:m) {
+  db.scp.a[i, ] <- pmi.data.estimate(new.inven.a[[i]], "1990-01-01", "2018-06-30")
+}
+
+# B 등급 부품 DB 만들기 : 성공 
+n <- length(inven.b)
+db.scp.b <- data.table()
+for(i in 1:n) {
+  if (nrow(inven.b[[i]]) != 0) {} 
+  else {
+    cat(i, "번째 list는 데이터가 없음.", "\n", sep = " ")
+    except.num[i] <- i }
+}
+
+new.inven.b <- inven.b[which(is.na(except.num))] 
+m <- length(new.inven.b)
+
+for(i in 1:m) {
+  db.scp.b[i, ] <- pmi.data.estimate(new.inven.b[[i]], "1990-01-01", "2018-06-30")
+}
+
+
+# c 등급 부품 DB 만들기 : 에러 발생 
+n <- length(inven.c)
+db.scp.c <- data.table()
+for(i in 1:n) {
+  if (nrow(inven.c[[i]]) != 0) {} 
+  else {
+    cat(i, "번째 list는 데이터가 없음.", "\n", sep = " ")
+    except.num[i] <- i }
+}
+
+new.inven.c <- inven.c[which(is.na(except.num))] 
+m <- length(new.inven.c)
+
+for(i in 1:m) {
+  db.scp.c[i, ] <- pmi.data.estimate(new.inven.c[[i]], "1990-01-01", "2018-06-30")
+}
+
+##############################################################################
+#
+#                     단계 4. EOQ, ROP, SS 등 계산      
+#
+##############################################################################
+require(SCperf)
+
+scp.result.b <- db.scp.b %>% group_by(PART_CD) %>% 
+                           mutate(ORD_QUNT = EOQ(DMD_SUM, ORD_COST, HLD_COST, SHT_PNT_COST)[1], 
+                                  ORD_TM = EOQ(DMD_SUM, ORD_COST, HLD_COST, SHT_PNT_COST)[2], 
+                                  TVC = EOQ(DMD_SUM, ORD_COST, HLD_COST, SHT_PNT_COST)[3], 
+                                  ROP = ROP(SVC_LV, YR_DMD, SD, LD_TM), 
+                                  SS = SS(SVC_LV, SD, LD_TM)) %>% 
+                           arrange(ORD_QUNT)
 
 
 
