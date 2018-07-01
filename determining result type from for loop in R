@@ -1,0 +1,25 @@
+##############################################################################
+#
+#                      1. 다수의 데이터프레임으로 구성된 list로 출력     
+#
+##############################################################################
+
+inven.history <- function(x, y, z) {
+  n <- length(x)
+  list.of.dfs <- list() 
+  
+  for(i in 1:n) {
+    df <- y %>% filter(PART_CD == x[i]) %>% select(PART_CD, IO_IOCD, IO_IODT, IO_EA, IO_DAN) %>% 
+      mutate(PD_NCHO = z$PD_NCHO[which(z$PART_CD == x[i])], 
+             IO_IODT = as.Date(IO_IODT),
+             IN_DAY = ifelse(IO_IOCD %in% c("AI", "IN", "RI"), IO_IODT, NA),
+             OUT_DAY = ifelse(IO_IOCD %in% c("AO", "OT", "RO"), IO_IODT, NA), 
+             IN_STK = ifelse(IO_IOCD %in% c("AI", "IN", "RI"), IO_EA, 0),
+             OUT_STK = ifelse(IO_IOCD %in% c("AO", "OT", "RO"), IO_EA, 0)) %>% 
+      arrange(PART_CD, IO_IODT)
+    df$IN_DAY <- as.Date(df$IN_DAY, origin = "1970-1-1")
+    df$OUT_DAY <- as.Date(df$OUT_DAY, origin = "1970-1-1")
+    list.of.dfs[[i]] <- df
+  }
+  return(list.of.dfs)
+}
