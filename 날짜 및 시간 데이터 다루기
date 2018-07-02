@@ -47,6 +47,10 @@ yday 0–365: day of the year
 isdst : Daylight Saving Time (DST) flag. Positive if DST is observed,
 zero otherwise (negative if unknown)
 
+# 정수를 "1991-03-01" 형태로 바꾸기 
+
+db.scp.b$STRAT_DAY <- as.Date(db.scp.b$STRAT_DAY, origin = "1970-01-01")
+
 
 
 
