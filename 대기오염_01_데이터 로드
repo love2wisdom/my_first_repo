@@ -1,0 +1,261 @@
+#######################################################################################
+#
+#                                Step 1. 북항 관측소 데이터 로드   
+#
+########################################################################################
+# 작업 디렉토리 설정 : 내부 데이터 폴더에서 데이터 불러옴. 
+setwd("D:/bigdata_secondary/800.파일공유/804.데이터분석공유/박세훈 자료/00-1. My Work_(진행중)/SFR-014-1_신규 시나리오(대기오염물질 영향인자 상관분석)/02. Cleaned_Data/01. 내부 Data")
+
+# 북항 관측소 자료 불러오기 
+require(readxl)
+north.1.Oct <- read_excel("항만(부산북항)측정자료(2017.10.~2018.3.).xlsx", sheet = "10월")
+north.1.Nov <- read_excel("항만(부산북항)측정자료(2017.10.~2018.3.).xlsx", sheet = "11월")
+north.1.Dec <- read_excel("항만(부산북항)측정자료(2017.10.~2018.3.).xlsx", sheet = "12월")
+
+# 년, 월, 일, 시 열을 제거하고 dataframe 형으로 지정
+north.1.Oct <- data.frame(north.1.Oct[, c(5:17)])
+north.1.Nov <- data.frame(north.1.Nov[, c(5:17)])
+north.1.Dec <- data.frame(north.1.Dec[, c(5:17)])
+
+# 월별 데이터를 시간순서로 결합 
+north.1.4qrt <- rbind(north.1.Oct, north.1.Nov, north.1.Dec)
+
+str(north.1.4qrt)
+
+# 열 이름 지정
+names(north.1.4qrt) <- c("일시", "O3", "SO2", "CO", "NO2", "NO", "NOx", "PM10", "PM2.5", "온도", "풍향", "풍속", "습도")
+
+# 일시 데이터타입 POSIXlt 형으로 변환 
+north.1.4qrt$일시 <- as.POSIXlt(north.1.4qrt$일시)
+
+# '동불' 및 '점검' 등 문자열을 NA로 치환 
+for(i in 2:13) { 
+  north.1.4qrt[, i] <- as.character(gsub("동불", "점검", north.1.4qrt[,i]))
+  north.1.4qrt[, i] <- as.numeric(gsub("점검", "", north.1.4qrt[,i]))
+}
+
+# 치환 에러 발생 시 에러 발생 위치 확인 및 치환
+col.num <- grep("점검", north.1.4qrt)
+row.num <- grep("점검", north.1.4qrt[,col.num])
+north.1.4qrt[row.num, col.num] <- as.numeric(gsub("점검", "", north.1.4qrt[row.num, col.num]))
+
+
+# 풍향, 풍속, 습도 type 변경 
+north.1.4qrt$풍향 <- as.factor(north.1.4qrt$풍향)
+north.1.4qrt$풍속 <- as.numeric(north.1.4qrt$풍속)
+north.1.4qrt$습도 <- as.numeric(north.1.4qrt$습도)
+
+
+# 대기오염물질 측정값 일 평균치 취합 
+require(dplyr)
+
+# 파이프 연산자(%>%)를 사용하기 위해 '일시'의 데이터유형을 전환 
+north.1.4qrt$일시 <- as.Date(north.1.4qrt$일시)
+
+# 풍향은 일별 최빈 풍향, 나머지 항목은 시간대별 데이터의 평균을 일별 데이터로 계산 
+north.1.4qrt.dd <- north.1.4qrt %>% group_by(일시) %>% 
+  summarise(O3 = mean(O3, na.rm = T), 
+            SO2 = mean(SO2, na.rm = T), 
+            CO = mean(CO, na.rm = T), 
+            NO2 = mean(NO2, na.rm = T), 
+            NO = mean(NO, na.rm = T), 
+            NOx = mean(NOx, na.rm = T), 
+            PM10 = mean(PM10, na.rm = T), 
+            PM2.5 = mean(PM2.5, na.rm = T), 
+            온도 = mean(온도, na.rm = T),
+            풍향 = names(which.max(table(풍향))),
+            풍속 = mean(풍속, na.rm = T),
+            습도 = mean(습도, na.rm = T)) %>% 
+  arrange(일시)
+
+# 마지막 행이 1월1일로 처리되므로 제거 
+north.1.4qrt.dd <- north.1.4qrt.dd[-93,]
+
+
+
+# 불필요한 데이터 삭제 
+rm(north.1.Dec, north.1.Nov, north.1.Oct)
+
+#######################################################################################
+#
+#                                Step 2. 신항 관측소 데이터 로드   
+#
+########################################################################################
+# 작업 폴더 변경 : 외부 데이터 폴더에서 데이터 불러옴.   
+setwd("D:/bigdata_secondary/800.파일공유/804.데이터분석공유/박세훈 자료/00-1. My Work_(진행중)/SFR-014-1_신규 시나리오(대기오염물질 영향인자 상관분석)/02. Cleaned_Data/02. 외부 Data")
+
+# 신항 관측소 엑셀파일로부터 월별 데이터 시트 불러오기 
+
+new.1.Oct <- read_excel("항만(부산신항)측정자료(2017.10.~2018.3.).xlsx", sheet = "10월")
+new.1.Nov <- read_excel("항만(부산신항)측정자료(2017.10.~2018.3.).xlsx", sheet = "11월")
+new.1.Dec <- read_excel("항만(부산신항)측정자료(2017.10.~2018.3.).xlsx", sheet = "12월")
+
+# 년, 월, 일, 시 열을 제거하고 dataframe 형으로 지정
+new.1.Oct <- data.frame(new.1.Oct[, c(5:17)])
+new.1.Nov <- data.frame(new.1.Nov[, c(5:17)])
+new.1.Dec <- data.frame(new.1.Dec[, c(5:17)])
+
+# 월별 데이터를 시간순서로 결합
+new.1.4qrt <- rbind(new.1.Oct, new.1.Nov, new.1.Dec)
+
+str(new.1.4qrt)
+
+# 열 이름 지정
+names(new.1.4qrt) <- c("일시", "O3", "SO2", "CO", "NO2", "NO", "NOx", "PM10", "PM2.5", "온도", "풍향", "풍속", "습도")
+
+# 일시 데이터타입 POSIXlt 형으로 변환 
+new.1.4qrt$일시 <- as.POSIXlt(new.1.4qrt$일시)
+
+# '동불' 및 '점검' 등 문자열을 NA로 치환 
+for(i in 2:13) { 
+  new.1.4qrt[, i] <- as.character(gsub("동불", "점검", new.1.4qrt[,i]))
+  new.1.4qrt[, i] <- as.numeric(gsub("점검", "", new.1.4qrt[,i]))
+}
+
+# 치환 에러 발생 시 에러 발생 위치 확인 및 치환
+col.num <- grep("점검", new.1.4qrt)
+row.num <- grep("점검", new.1.4qrt[,col.num])
+new.1.4qrt[row.num, col.num] <- as.numeric(gsub("점검", "", new.1.4qrt[row.num, col.num]))
+
+# 풍향, 풍속, 습도 type 변경 
+new.1.4qrt$풍향 <- as.factor(new.1.4qrt$풍향)
+new.1.4qrt$풍속 <- as.numeric(new.1.4qrt$풍속)
+new.1.4qrt$습도 <- as.numeric(new.1.4qrt$습도)
+
+
+# 대기오염물질 측정값 일 평균치 취합 
+require(dplyr)
+
+# 파이프 연산자(%>%)를 사용하기 위해 '일시'의 데이터유형을 전환 
+new.1.4qrt$일시 <- as.Date(new.1.4qrt$일시)
+
+# 풍향은 일별 최빈 풍향, 나머지 항목은 시간대별 데이터의 평균을 일별 데이터로 계산 
+new.1.4qrt.dd <- new.1.4qrt %>% group_by(일시) %>% 
+  summarise(O3 = mean(O3, na.rm = T), 
+            SO2 = mean(SO2, na.rm = T), 
+            CO = mean(CO, na.rm = T), 
+            NO2 = mean(NO2, na.rm = T), 
+            NO = mean(NO, na.rm = T), 
+            NOx = mean(NOx, na.rm = T), 
+            PM10 = mean(PM10, na.rm = T), 
+            PM2.5 = mean(PM2.5, na.rm = T), 
+            온도 = mean(온도, na.rm = T),
+            풍향 = names(which.max(table(풍향))),
+            풍속 = mean(풍속, na.rm = T),
+            습도 = mean(습도, na.rm = T)) %>% 
+  arrange(일시)
+
+# 마지막 행이 1월1일로 처리되므로 제거 
+new.1.4qrt.dd <- new.1.4qrt.dd[-93,]
+
+
+# 불필요한 데이터 삭제 
+rm(new.1.Dec, new.1.Nov, new.1.Oct)
+
+
+#######################################################################################
+#
+#                   Step 3.  선박 접안 시간 데이터 불러오기    
+#
+########################################################################################
+# 오라클 DB 연결 패키지 불러오기
+library(RODBC)
+
+# Database 접속 정보
+odbc.dsn <- "BigDataDSN"
+odbc.uid <- "BIGDATA"
+odbc.pwd <- "BIGDATA"
+
+# DB 접속
+db.connect <- odbcConnect(dsn = odbc.dsn, uid = odbc.uid, pwd = odbc.pwd, believeNRows=FALSE)
+
+
+# 분석 기간동안의 터미널 데이터 가져와서 data.frame 형태로 만들기 
+
+tm.df <- sqlQuery(db.connect, paste0("SELECT A.* , B.CC_VAN, B.TC_VAN, B.YT_VAN, B.ET_VAN
+                                     FROM BIGDATA.BI_BERTH_PROD_HOURS A
+                                     , BIGDATA.BI_BERTH_WORK_HOURS B
+                                     WHERE A.BASIS_DATE = B.BASIS_DATE (+)
+                                     AND A.USE_HH24 = B.USE_HH24 (+)
+                                     AND A.TMN_CODE = B.TMN_CODE (+)
+                                     AND A.BASIS_DATE BETWEEN '20171001' AND '20171231'      
+                                     AND A.TMN_CODE IN ('HBCT', 'DPCT', 'BIT', 'KBCT', 'NORMAL', 'PNIT', 'PNC', 'HJNC', 'HPNT', 'BNCT', 'MULTIPURPOSE')  
+                                     ORDER BY A.TMN_CODE, A.BASIS_DATE, A.USE_HH24 
+                                     "), stringsAsFactors = F)
+
+
+# 접속정보 해제
+odbcClose(db.connect)
+
+str(tm.df)
+
+
+# 데이터 유형 정리
+require(chron)
+require(lubridate)
+
+tm.op.hr <- data.frame(tm.df[, c(1:5, 15:36, 39:42)])
+
+tm.op.hr$BASIS_DATE <- as.integer(tm.op.hr$BASIS_DATE)
+tm.op.hr$USE_HH24 <- paste(as.character(tm.op.hr$USE_HH24), "00", sep=":") 
+tm.op.hr$DIVISION <- as.factor(tm.op.hr$DIVISION)
+tm.op.hr$TMN_CODE <- as.factor(tm.op.hr$TMN_CODE)
+tm.op.hr$TMN_NM <- as.factor(tm.op.hr$TMN_NM)
+tm.op.hr[is.na(tm.op.hr)] <- 0 
+
+tm.op.hr <- tm.op.hr %>% mutate(DATE = paste(BASIS_DATE, USE_HH24) %>% ymd_hm) %>% arrange(DATE)
+tm.op.hr <- tm.op.hr %>% filter(DATE >= ymd_hms("2017-10-01 01:00:00"), DATE <= ymd_hms("2017-12-31 23:00:00")) 
+
+
+str(tm.op.hr)
+
+# 필요 없는 테이블 삭제 
+rm(tm.df)
+
+#######################################################################################
+#
+#                               Step 4. 참조용 데이터 불러오기    
+#
+########################################################################################
+
+# 4-1. 비온 날(강수량 5mm 이상 일자) DB 테이블 만들기 
+# 작업 폴더 변경 : 외부 데이터 폴더에서 데이터 불러옴.   
+setwd("D:/bigdata_secondary/800.파일공유/804.데이터분석공유/박세훈 자료/00-1. My Work_(진행중)/SFR-014-1_신규 시나리오(대기오염물질 영향인자 상관분석)/02. Cleaned_Data/02. 외부 Data")
+
+# 강수정보 파일(CSV 형식) 가져오기 
+rain.db <- read.csv("강수정보(2017.10~2017.12).csv")
+
+# 열이름 수정 
+names(rain.db) <- c("일시", "지점", "강수량")
+
+# '일시' 표준시 무시하고 보이는 그대로 사용하기
+require(lubridate)
+rain.db$일시 <- as_date(rain.db$일시)
+
+# 맑은 날(강수량 NA) 행 삭제 
+rm.sunny.day <- na.omit(rain.db)
+rm.sunny.day$일시 <- date(rm.sunny.day$일시)
+
+# 강수량 5mm이상인 일시만 필터링 후, rainy.day에 저장 
+require(dplyr)
+rainny.day <- rm.sunny.day %>% select(일시, 강수량) %>% filter(강수량>=5) %>% arrange(일시)
+rainny.day$일시 <- as_date(rainny.day$일시)
+
+# 필요 없는 테이블 삭제 
+rm(rain.db, rm.sunny.day)
+
+
+
+# 4-2. 컨테이너 선박 톤수별 발전기 용량 자료 가져오기  
+setwd("D:/bigdata_secondary/800.파일공유/804.데이터분석공유/박세훈 자료/00-1. My Work_(진행중)/SFR-014-1_신규 시나리오(대기오염물질 영향인자 상관분석)/02. Cleaned_Data/01. 내부 Data")
+
+require(readxl)
+power.lf <- read_excel("터미널 대기오염물질 배출량 산정 참고자료.xlsx", sheet = "출력 및 Load Factor")
+emi.fac <- read_excel("터미널 대기오염물질 배출량 산정 참고자료.xlsx", sheet = "배출계수")
+
+
+
+
+
+
+
