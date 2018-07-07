@@ -1,0 +1,111 @@
+
+
+##############################################################################
+#
+#                            단계 2. T_PTIV_B 테이블용 dataframe 생성    
+#
+##############################################################################
+
+
+part.cd.ptio <- as.data.frame(unique(db.t.ptio$PART_CD))
+names(part.cd.ptio) <- c("PART_CD")
+
+grade.b <- as.data.frame(unique(db.t.ptdt %>% filter(PD_GRADE == "B") %>% select(PART_CD)))
+names(grade.b) <- c("B_GRADE")
+
+ptio.grade.b <- db.t.ptio %>% filter(PART_CD %in% grade.b$B_GRADE) %>% 
+                              select(PART_CD, IO_IOCD, IO_IODT, IO_EA, IO_USER, IO_DAN, IO_POS, IO_WSEQ) %>% 
+                              arrange(PART_CD)
+
+
+inven.b <- inven.history(grade.b$B_GRADE, ptio.grade.b, db.t.ptdt, db.t.part)
+
+
+
+
+##############################################################################
+#
+#                     단계 3. Generate DB for SCperf package     
+#
+##############################################################################
+
+
+# B 등급 부품 DB 만들기 :
+n <- length(inven.b)
+except.num <- vector()
+for(i in 1:n) {
+  if (nrow(inven.b[[i]]) != 0) {except.num[i] <- TRUE} 
+  else {
+    cat(i, "번째 list는 데이터가 없음.", "\n", sep = " ")
+    except.num[i] <- FALSE
+    }
+}
+except.num
+
+filter.inven.b <- inven.b[which(except.num)] 
+m <- length(filter.inven.b)
+
+db.scp.b <- data.frame(matrix(nrow = m, ncol = 14))
+colnames(db.scp.b) <- c("PART_CD", "STRAT_DAY", "END_DAY", "DMD_SUM", "AVG_REAL_STK", "AVG_DISPALY_STK", 
+                        "TIME_LEN", "YR_DMD", "ORD_COST", "HLD_COST", 
+                        "SHT_PNT_COST", "SVC_LV", "SD", "SCP_LEAD_TIME")
+for(i in 1:m) {
+  db.scp.b[i, ] <- pmi.data.estimate(filter.inven.b[[i]], "1900-01-01", now())
+  cat(m, "번째 중 ", i, "번째 레코드 작성 성공.", "\n", sep = " ")
+}
+
+
+str(db.scp.b)
+colSums(is.na(db.scp.b))
+
+db.scp.b$PART_CD <- as.factor(db.scp.b$PART_CD)
+db.scp.b$STRAT_DAY <- as.Date(db.scp.b$STRAT_DAY, origin = "1970-01-01")
+db.scp.b$END_DAY <- as.Date(db.scp.b$END_DAY, origin = "1970-01-01")
+db.scp.b$SCP_LEAD_TIME <- ifelse(db.scp.b$SCP_LEAD_TIME <= 0, 1, db.scp.b$SCP_LEAD_TIME)
+
+
+
+##############################################################################
+#
+#                     단계 4. EOQ, ROP, SS 등 계산      
+#
+##############################################################################
+require(SCperf)
+
+scp.result.b <- db.scp.b %>% filter(DMD_SUM > 0 & TIME_LEN > 0 & YR_DMD != "NA" & YR_DMD > 0 & SD != "NA" & SCP_LEAD_TIME > 0) %>%
+                             group_by(PART_CD) %>%
+                             mutate(EOQ_ORD = EOQ(DMD_SUM, ORD_COST, HLD_COST, SHT_PNT_COST)[1], 
+                                    EOQ_TM = EOQ(DMD_SUM, ORD_COST, HLD_COST, SHT_PNT_COST)[2], 
+                                    EOQ_TVC = EOQ(DMD_SUM, ORD_COST, HLD_COST, SHT_PNT_COST)[3], 
+                                    ROP = ROP(SVC_LV, YR_DMD, SD, SCP_LEAD_TIME), 
+                                    SS = SS(SVC_LV, SD, SCP_LEAD_TIME)) %>% 
+                             select(PART_CD, EOQ_ORD, EOQ_TM, EOQ_TVC, ROP, SS) %>% 
+                             arrange(PART_CD)
+
+scp.result.b <- db.scp.b %>% filter(DMD_SUM > 0 &  SD != "NA" & SCP_LEAD_TIME > 0) %>%
+  group_by(PART_CD) %>%
+  mutate(EOQ_ORD = EOQ(DMD_SUM, ORD_COST, HLD_COST, SHT_PNT_COST)[1], 
+         EOQ_TM = EOQ(DMD_SUM, ORD_COST, HLD_COST, SHT_PNT_COST)[2], 
+         EOQ_TVC = EOQ(DMD_SUM, ORD_COST, HLD_COST, SHT_PNT_COST)[3], 
+         ROP = ROP(SVC_LV, YR_DMD, SD, SCP_LEAD_TIME), 
+         SS = SS(SVC_LV, SD, SCP_LEAD_TIME)) %>% 
+  select(PART_CD, EOQ_ORD, EOQ_TM, EOQ_TVC, ROP, SS) %>% 
+  arrange(PART_CD)
+
+
+summary(scp.result.b)
+str(scp.result.b)
+
+##############################################################################
+#
+#                 단계 5. T_PTSR_B 테이블용 dataframe 만들기       
+#
+##############################################################################
+
+str(db.scp.b)
+str(scp.result.b)
+
+scp.result.b <- as.data.frame(scp.result.b)
+db.t.ptsr.b <- merge(db.scp.b, scp.result.b, by = 'PART_CD')
+
+str(db.t.ptsr.b)
