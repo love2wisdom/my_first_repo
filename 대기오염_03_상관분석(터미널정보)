@@ -1,0 +1,608 @@
+#######################################################################################
+#
+#   Step 1. 터미널 접안 선박 오염물질 배출량 DB 만들기 (시간데이터 기준) 
+#
+########################################################################################
+
+setwd("D:/bigdata_secondary/800.파일공유/804.데이터분석공유/박세훈 자료/00-1. My Work_(진행중)/SFR-014-1_신규 시나리오(대기오염물질 영향인자 상관분석)/01. Original_Data/01. 내부 Data")
+
+# 컨테이너 선박 톤수별 발전기 용량 자료 가져오기 
+require(readxl)
+gntr.capa <- read_excel("terminal_data.xlsx", sheet = "convert")
+
+
+# 패키지 불러오기
+library(RODBC)
+
+# Database 접속 정보
+odbc.dsn <- "BigDataDSN"
+odbc.uid <- "BIGDATA"
+odbc.pwd <- "BIGDATA"
+
+
+# DB 접속
+db.connect <- odbcConnect(dsn = odbc.dsn, uid = odbc.uid, pwd = odbc.pwd, believeNRows=FALSE)
+
+
+# 분석 기간동안의 데이터 가져와서 data.frame 형태로 만들기 
+
+tm.df <- sqlQuery(db.connect, paste0("SELECT *
+                                     FROM BIGDATA.BI_BERTH_PROD_HH
+                                     WHERE BASIS_DATE BETWEEN '20171001'  
+                                     AND '20171231'
+                                     AND DIVISION IN ('신항','신항')                   
+                                     ORDER BY DIVISION, BASIS_DATE, TMN_NM"), stringsAsFactors = F)
+
+
+# 접속정보 해제
+odbcClose(db.connect)
+
+
+# 데이터 유형 정리
+require(chron)
+require(lubridate)
+
+dock.ship <- data.frame(tm.df[, c(1:4, 22:43)])
+
+dock.ship$BASIS_DATE <- as.integer(dock.ship$BASIS_DATE)
+dock.ship$USE_HH24 <- paste(as.character(dock.ship$USE_HH24), "00", sep=":") 
+dock.ship$DIVISION <- as.factor(dock.ship$DIVISION)
+dock.ship$TMN_CODE <- as.factor(dock.ship$TMN_CODE)
+dock.ship[is.na(dock.ship)] <- 0 
+
+dock.ship <- dock.ship %>% mutate(DATE = paste(BASIS_DATE, USE_HH24) %>% ymd_hm) %>% arrange(DATE)
+dock.ship <- dock.ship %>% filter(DATE >= ymd_hms("2017-10-01 01:00:00"), DATE <= ymd_hms("2017-12-31 23:00:00")) 
+                        
+
+str(dock.ship)
+
+
+
+require(dplyr)
+
+LF <- 0.17
+EF.SO2 <- 12.7
+EF.NO2 <- 10.8
+EF.CO <- 1.1
+EF.PM10 <- 2.4
+EF.PM2.5 <- 2.4
+
+
+# 북항 터미널별 오북염물질 배출량 집계 
+cnt.BIT <- dock.ship %>% filter(TMN_CODE == "BIT") %>% 
+                         mutate(CONSUM_POWER = SHIP_1500*780 + SHIP_3000*2300 + SHIP_4000*2720 + SHIP_5000*3100 + 
+                                               SHIP_6000*2720 + SHIP_7000*2720 + SHIP_8000*3000 + SHIP_9000*3000 + 
+                                               SHIP_10000*3500 + SHIP_11000*3500 + SHIP_12000*3500 + SHIP_13000*3500 + 
+                                               SHIP_14000*3500 + SHIP_15000*3500 + SHIP_16000*3500 + SHIP_17000*3500 + 
+                                               SHIP_18000*3500 + SHIP_19000*3500 + SHIP_20000*3500 + SHIP_21000*3500 + 
+                                               SHIP_23000*3500 + SHIP_MAX*3500, 
+                                 SO2_BIT = CONSUM_POWER*LF*EF.SO2/10^6,
+                                 NO2_BIT = CONSUM_POWER*LF*EF.NO2/10^6,
+                                 PM10_BIT = CONSUM_POWER*LF*EF.PM10/10^3,
+                                 PM2.5_BIT = CONSUM_POWER*LF*EF.PM2.5/10^3,
+                                 CO_BIT = CONSUM_POWER*LF*EF.CO/10^3) %>% 
+                         select(DATE, DIVISION, TMN_CODE, CONSUM_POWER, 
+                                SO2_BIT, NO2_BIT, PM10_BIT, PM2.5_BIT, CO_BIT) %>%
+                         arrange(DATE)
+
+cnt.BPT <- dock.ship %>% filter(TMN_CODE == "BPT") %>% 
+                         mutate(CONSUM_POWER = SHIP_1500*780 + SHIP_3000*2300 + SHIP_4000*2720 + SHIP_5000*3100 + 
+                                               SHIP_6000*2720 + SHIP_7000*2720 + SHIP_8000*3000 + SHIP_9000*3000 + 
+                                               SHIP_10000*3500 + SHIP_11000*3500 + SHIP_12000*3500 + SHIP_13000*3500 + 
+                                               SHIP_14000*3500 + SHIP_15000*3500 + SHIP_16000*3500 + SHIP_17000*3500 + 
+                                               SHIP_18000*3500 + SHIP_19000*3500 + SHIP_20000*3500 + SHIP_21000*3500 + 
+                                               SHIP_23000*3500 + SHIP_MAX*3500, 
+                                 SO2_BPT = CONSUM_POWER*LF*EF.SO2/10^6,
+                                 NO2_BPT = CONSUM_POWER*LF*EF.NO2/10^6,
+                                 PM10_BPT = CONSUM_POWER*LF*EF.PM10/10^3,
+                                 PM2.5_BPT = CONSUM_POWER*LF*EF.PM2.5/10^3,
+                                 CO_BPT = CONSUM_POWER*LF*EF.CO/10^3) %>%
+                          select(DATE, DIVISION, TMN_CODE, CONSUM_POWER, 
+                                 SO2_BPT, NO2_BPT, PM10_BPT, PM2.5_BPT, CO_BPT) %>%
+                          arrange(DATE)
+
+
+cnt.DPCT <- dock.ship %>% filter(TMN_CODE == "DPCT") %>% 
+                          mutate(CONSUM_POWER = SHIP_1500*780 + SHIP_3000*2300 + SHIP_4000*2720 + SHIP_5000*3100 + 
+                                                SHIP_6000*2720 + SHIP_7000*2720 + SHIP_8000*3000 + SHIP_9000*3000 + 
+                                                SHIP_10000*3500 + SHIP_11000*3500 + SHIP_12000*3500 + SHIP_13000*3500 + 
+                                                SHIP_14000*3500 + SHIP_15000*3500 + SHIP_16000*3500 + SHIP_17000*3500 + 
+                                                SHIP_18000*3500 + SHIP_19000*3500 + SHIP_20000*3500 + SHIP_21000*3500 + 
+                                                SHIP_23000*3500 + SHIP_MAX*3500, 
+                                 SO2_DPCT = CONSUM_POWER*LF*EF.SO2/10^6,
+                                 NO2_DPCT = CONSUM_POWER*LF*EF.NO2/10^6,
+                                 PM10_DPCT = CONSUM_POWER*LF*EF.PM10/10^3,
+                                 PM2.5_DPCT = CONSUM_POWER*LF*EF.PM2.5/10^3,
+                                 CO_DPCT = CONSUM_POWER*LF*EF.CO/10^3) %>% 
+                          select(DATE, DIVISION, TMN_CODE, CONSUM_POWER, 
+                                 SO2_DPCT, NO2_DPCT, PM10_DPCT, PM2.5_DPCT, CO_DPCT) %>%
+                          arrange(DATE)
+
+  
+cnt.HBCT <- dock.ship %>% filter(TMN_CODE == "HBCT") %>%
+                          mutate(CONSUM_POWER = SHIP_1500*780 + SHIP_3000*2300 + SHIP_4000*2720 + SHIP_5000*3100 + 
+                                                SHIP_6000*2720 + SHIP_7000*2720 + SHIP_8000*3000 + SHIP_9000*3000 + 
+                                                SHIP_10000*3500 + SHIP_11000*3500 + SHIP_12000*3500 + SHIP_13000*3500 + 
+                                                SHIP_14000*3500 + SHIP_15000*3500 + SHIP_16000*3500 + SHIP_17000*3500 + 
+                                                SHIP_18000*3500 + SHIP_19000*3500 + SHIP_20000*3500 + SHIP_21000*3500 + 
+                                                SHIP_23000*3500 + SHIP_MAX*3500, 
+                                 SO2_HBCT = CONSUM_POWER*LF*EF.SO2/10^6,
+                                 NO2_HBCT = CONSUM_POWER*LF*EF.NO2/10^6,
+                                 PM10_HBCT = CONSUM_POWER*LF*EF.PM10/10^3,
+                                 PM2.5_HBCT = CONSUM_POWER*LF*EF.PM2.5/10^3,
+                                 CO_HBCT = CONSUM_POWER*LF*EF.CO/10^3) %>% 
+                          select(DATE, DIVISION, TMN_CODE, CONSUM_POWER, 
+                                 SO2_HBCT, NO2_HBCT, PM10_HBCT, PM2.5_HBCT, CO_HBCT) %>%
+                          arrange(DATE)
+
+  
+cnt.KBCT <- dock.ship %>% filter(TMN_CODE == "KBCT") %>% 
+                          mutate(CONSUM_POWER = SHIP_1500*780 + SHIP_3000*2300 + SHIP_4000*2720 + SHIP_5000*3100 + 
+                                                SHIP_6000*2720 + SHIP_7000*2720 + SHIP_8000*3000 + SHIP_9000*3000 + 
+                                                SHIP_10000*3500 + SHIP_11000*3500 + SHIP_12000*3500 + SHIP_13000*3500 + 
+                                                SHIP_14000*3500 + SHIP_15000*3500 + SHIP_16000*3500 + SHIP_17000*3500 + 
+                                                SHIP_18000*3500 + SHIP_19000*3500 + SHIP_20000*3500 + SHIP_21000*3500 + 
+                                                SHIP_23000*3500 + SHIP_MAX*3500, 
+                                 SO2_KBCT = CONSUM_POWER*LF*EF.SO2/10^6,
+                                 NO2_KBCT = CONSUM_POWER*LF*EF.NO2/10^6,
+                                 PM10_KBCT = CONSUM_POWER*LF*EF.PM10/10^3,
+                                 PM2.5_KBCT = CONSUM_POWER*LF*EF.PM2.5/10^3,
+                                 CO_KBCT = CONSUM_POWER*LF*EF.CO/10^3) %>% 
+                          select(DATE, DIVISION, TMN_CODE, CONSUM_POWER, 
+                                 SO2_KBCT, NO2_KBCT, PM10_KBCT, PM2.5_KBCT, CO_KBCT) %>%
+                          arrange(DATE)
+
+
+
+# 신항 터미널별 집계 
+cnt.PNIT <- dock.ship %>% filter(TMN_CODE == "PNIT") %>% 
+                          mutate(CONSUM_POWER = SHIP_1500*780 + SHIP_3000*2300 + SHIP_4000*2720 + SHIP_5000*3100 + 
+                                                SHIP_6000*2720 + SHIP_7000*2720 + SHIP_8000*3000 + SHIP_9000*3000 + 
+                                                SHIP_10000*3500 + SHIP_11000*3500 + SHIP_12000*3500 + SHIP_13000*3500 + 
+                                                SHIP_14000*3500 + SHIP_15000*3500 + SHIP_16000*3500 + SHIP_17000*3500 + 
+                                                SHIP_18000*3500 + SHIP_19000*3500 + SHIP_20000*3500 + SHIP_21000*3500 + 
+                                                SHIP_23000*3500 + SHIP_MAX*3500, 
+                                 SO2_PNIT = CONSUM_POWER*LF*EF.SO2/10^6,
+                                 NO2_PNIT = CONSUM_POWER*LF*EF.NO2/10^6,
+                                 PM10_PNIT = CONSUM_POWER*LF*EF.PM10/10^3,
+                                 PM2.5_PNIT = CONSUM_POWER*LF*EF.PM2.5/10^3,
+                                 CO_PNIT = CONSUM_POWER*LF*EF.CO/10^3) %>% 
+                         select(DATE, DIVISION, TMN_CODE, CONSUM_POWER, 
+                                SO2_PNIT, NO2_PNIT, PM10_PNIT, PM2.5_PNIT, CO_PNIT) %>%
+                         arrange(DATE)
+
+
+cnt.PNC <- dock.ship %>% filter(TMN_CODE == "PNC") %>% 
+                         mutate(CONSUM_POWER = SHIP_1500*780 + SHIP_3000*2300 + SHIP_4000*2720 + SHIP_5000*3100 + 
+                                               SHIP_6000*2720 + SHIP_7000*2720 + SHIP_8000*3000 + SHIP_9000*3000 + 
+                                               SHIP_10000*3500 + SHIP_11000*3500 + SHIP_12000*3500 + SHIP_13000*3500 + 
+                                               SHIP_14000*3500 + SHIP_15000*3500 + SHIP_16000*3500 + SHIP_17000*3500 + 
+                                               SHIP_18000*3500 + SHIP_19000*3500 + SHIP_20000*3500 + SHIP_21000*3500 + 
+                                               SHIP_23000*3500 + SHIP_MAX*3500, 
+                                SO2_PNC = CONSUM_POWER*LF*EF.SO2/10^6,
+                                NO2_PNC = CONSUM_POWER*LF*EF.NO2/10^6,
+                                PM10_PNC = CONSUM_POWER*LF*EF.PM10/10^3,
+                                PM2.5_PNC = CONSUM_POWER*LF*EF.PM2.5/10^3,
+                                CO_PNC = CONSUM_POWER*LF*EF.CO/10^3) %>% 
+                          select(DATE, DIVISION, TMN_CODE, CONSUM_POWER, 
+                                 SO2_PNC, NO2_PNC, PM10_PNC, PM2.5_PNC, CO_PNC) %>%
+                          arrange(DATE)
+
+
+cnt.HJNC <- dock.ship %>% filter(TMN_CODE == "HJNC") %>% 
+                          mutate(CONSUM_POWER = SHIP_1500*780 + SHIP_3000*2300 + SHIP_4000*2720 + SHIP_5000*3100 + 
+                                                SHIP_6000*2720 + SHIP_7000*2720 + SHIP_8000*3000 + SHIP_9000*3000 + 
+                                                SHIP_10000*3500 + SHIP_11000*3500 + SHIP_12000*3500 + SHIP_13000*3500 + 
+                                                SHIP_14000*3500 + SHIP_15000*3500 + SHIP_16000*3500 + SHIP_17000*3500 + 
+                                                SHIP_18000*3500 + SHIP_19000*3500 + SHIP_20000*3500 + SHIP_21000*3500 + 
+                                                SHIP_23000*3500 + SHIP_MAX*3500, 
+                                SO2_HJNC = CONSUM_POWER*LF*EF.SO2/10^6,
+                                NO2_HJNC = CONSUM_POWER*LF*EF.NO2/10^6,
+                                PM10_HJNC = CONSUM_POWER*LF*EF.PM10/10^3,
+                                PM2.5_HJNC = CONSUM_POWER*LF*EF.PM2.5/10^3,
+                                CO_HJNC = CONSUM_POWER*LF*EF.CO/10^3) %>% 
+                          select(DATE, DIVISION, TMN_CODE, CONSUM_POWER, 
+                                 SO2_HJNC, NO2_HJNC, PM10_HJNC, PM2.5_HJNC, CO_HJNC) %>%
+                          arrange(DATE)
+
+
+cnt.HPNT <- dock.ship %>% filter(TMN_CODE == "HPNT") %>% 
+                          mutate(CONSUM_POWER = SHIP_1500*780 + SHIP_3000*2300 + SHIP_4000*2720 + SHIP_5000*3100 + 
+                                                SHIP_6000*2720 + SHIP_7000*2720 + SHIP_8000*3000 + SHIP_9000*3000 + 
+                                                SHIP_10000*3500 + SHIP_11000*3500 + SHIP_12000*3500 + SHIP_13000*3500 + 
+                                                SHIP_14000*3500 + SHIP_15000*3500 + SHIP_16000*3500 + SHIP_17000*3500 + 
+                                                SHIP_18000*3500 + SHIP_19000*3500 + SHIP_20000*3500 + SHIP_21000*3500 + 
+                                                SHIP_23000*3500 + SHIP_MAX*3500, 
+                                 SO2_HPNT = CONSUM_POWER*LF*EF.SO2/10^6,
+                                 NO2_HPNT = CONSUM_POWER*LF*EF.NO2/10^6,
+                                 PM10_HPNT = CONSUM_POWER*LF*EF.PM10/10^3,
+                                 PM2.5_HPNT = CONSUM_POWER*LF*EF.PM2.5/10^3,
+                                 CO_HPNT = CONSUM_POWER*LF*EF.CO/10^3) %>% 
+                          select(DATE, DIVISION, TMN_CODE, CONSUM_POWER, 
+                                 SO2_HPNT, NO2_HPNT, PM10_HPNT, PM2.5_HPNT, CO_HPNT) %>%
+                          arrange(DATE)
+
+
+cnt.BNCT <- dock.ship %>% filter(TMN_CODE == "BNCT") %>% 
+                          mutate(CONSUM_POWER = SHIP_1500*780 + SHIP_3000*2300 + SHIP_4000*2720 + SHIP_5000*3100 + 
+                                                SHIP_6000*2720 + SHIP_7000*2720 + SHIP_8000*3000 + SHIP_9000*3000 + 
+                                                SHIP_10000*3500 + SHIP_11000*3500 + SHIP_12000*3500 + SHIP_13000*3500 + 
+                                                SHIP_14000*3500 + SHIP_15000*3500 + SHIP_16000*3500 + SHIP_17000*3500 + 
+                                                SHIP_18000*3500 + SHIP_19000*3500 + SHIP_20000*3500 + SHIP_21000*3500 + 
+                                                SHIP_23000*3500 + SHIP_MAX*3500, 
+                                  SO2_BNCT = CONSUM_POWER*LF*EF.SO2/10^6,
+                                  NO2_BNCT = CONSUM_POWER*LF*EF.NO2/10^6,
+                                  PM10_BNCT = CONSUM_POWER*LF*EF.PM10/10^3,
+                                  PM2.5_BNCT = CONSUM_POWER*LF*EF.PM2.5/10^3,
+                                  CO_BNCT = CONSUM_POWER*LF*EF.CO/10^3) %>% 
+                          select(DATE, DIVISION, TMN_CODE, CONSUM_POWER, 
+                                 SO2_BNCT, NO2_BNCT, PM10_BNCT, PM2.5_BNCT, CO_BNCT) %>%
+                          arrange(DATE)
+
+
+# 시간대별 DATA TABLE 재취합  
+
+t.north.PM10 <- cbind(t.north.PM10, cnt.BIT$PM10_BIT, cnt.BPT$PM10_BPT, cnt.DPCT$PM10_DPCT, cnt.HBCT$PM10_HBCT, cnt.KBCT$PM10_KBCT)
+t.north.PM2.5 <- cbind(t.north.PM2.5, cnt.BIT$PM2.5_BIT, cnt.BPT$PM2.5_BPT, cnt.DPCT$PM2.5_DPCT, cnt.HBCT$PM2.5_HBCT, cnt.KBCT$PM2.5_KBCT)
+t.north.SO2 <- cbind(t.north.SO2, cnt.BIT$SO2_BIT, cnt.BPT$SO2_BPT, cnt.DPCT$SO2_DPCT, cnt.HBCT$SO2_HBCT, cnt.KBCT$SO2_KBCT)
+t.north.NO2 <- cbind(t.north.NO2, cnt.BIT$NO2_BIT, cnt.BPT$NO2_BPT, cnt.DPCT$NO2_DPCT, cnt.HBCT$NO2_HBCT, cnt.KBCT$NO2_KBCT)
+t.north.CO <- cbind(t.north.CO, cnt.BIT$CO_BIT, cnt.BPT$CO_BPT, cnt.DPCT$CO_DPCT, cnt.HBCT$CO_HBCT, cnt.KBCT$CO_KBCT)
+
+t.new.PM10 <- cbind(t.new.PM10, cnt.PNC$PM10_PNC, cnt.PNIT$PM10_PNIT, cnt.HJNC$PM10_HJNC, cnt.HPNT$PM10_HPNT, cnt.BNCT$PM10_BNCT)
+t.new.PM2.5 <- cbind(t.new.PM2.5, cnt.PNC$PM2.5_PNC, cnt.PNIT$PM2.5_PNIT, cnt.HJNC$PM2.5_HJNC, cnt.HPNT$PM2.5_HPNT, cnt.BNCT$PM2.5_BNCT)
+t.new.SO2 <- cbind(t.new.SO2, cnt.PNC$SO2_PNC, cnt.PNIT$SO2_PNIT, cnt.HJNC$SO2_HJNC, cnt.HPNT$SO2_HPNT, cnt.BNCT$SO2_BNCT)
+t.new.NO2 <- cbind(t.new.NO2, cnt.PNC$NO2_PNC, cnt.PNIT$NO2_PNIT, cnt.HJNC$NO2_HJNC, cnt.HPNT$NO2_HPNT, cnt.BNCT$NO2_BNCT)
+t.new.CO <- cbind(t.new.CO, cnt.PNC$CO_PNC, cnt.PNIT$CO_PNIT, cnt.HJNC$CO_HJNC, cnt.HPNT$CO_HPNT, cnt.BNCT$CO_BNCT)
+
+colnames(t.north.PM10)[7:11] <- c("PM10_BIT", "PM10_BPT", "PM10_DPCT", "PM10_HBCT", "PM10_KBCT")
+colnames(t.north.PM2.5)[7:11] <- c("PM2.5_BIT", "PM2.5_BPT", "PM2.5_DPCT", "PM2.5_HBCT", "PM2.5_KBCT")
+colnames(t.north.SO2)[7:11] <- c("SO2_BIT", "SO2_BPT", "SO2_DPCT", "SO2_HBCT", "SO2_KBCT")
+colnames(t.north.NO2)[7:11] <- c("NO2_BIT", "NO2_BPT", "NO2_DPCT", "NO2_HBCT", "NO2_KBCT")
+colnames(t.north.CO)[7:11] <- c("CO_BIT", "CO_BPT", "CO_DPCT", "CO_HBCT", "CO_KBCT")
+
+colnames(t.new.PM10)[7:11] <- c("PM10_PNC", "PM10_PNIT", "PM10_HJNC", "PM10_HPNT", "PM10_BNCT")
+colnames(t.new.PM2.5)[7:11] <- c("PM2.5_PNC", "PM2.5_PNIT", "PM2.5_HJNC", "PM2.5_HPNT", "PM2.5_BNCT")
+colnames(t.new.SO2)[7:11] <- c("SO2_PNC", "SO2_PNIT", "SO2_HJNC", "SO2_HPNT", "SO2_BNCT")
+colnames(t.new.NO2)[7:11] <- c("NO2_PNC", "NO2_PNIT", "NO2_HJNC", "NO2_HPNT", "NO2_BNCT")
+colnames(t.new.CO)[7:11] <- c("CO_PNC", "CO_PNIT", "CO_HJNC", "CO_HPNT", "CO_BNCT")
+
+# 컨테이너선이 접안하지 않는 터미널 자료를 제거 
+t2.north.PM10 <- select(t.north.PM10, -(which(colSums(t.north.PM10[,-c(1:6)]) == 0)+6))
+t2.north.PM2.5 <- select(t.north.PM2.5, -(which(colSums(t.north.PM2.5[,-c(1:6)]) == 0)+6))
+t2.north.SO2 <- select(t.north.SO2, -(which(colSums(t.north.SO2[,-c(1:6)]) == 0)+6))
+t2.north.NO2 <- select(t.north.NO2, -(which(colSums(t.north.NO2[,-c(1:6)]) == 0)+6))
+t2.north.CO <- select(t.north.CO, -(which(colSums(t.north.CO[,-c(1:6)]) == 0)+6))
+
+t2.new.PM10 <- select(t.new.PM10, -(which(colSums(t.new.PM10[,-c(1:6)]) == 0)+6))
+t2.new.PM2.5 <- select(t.new.PM2.5, -(which(colSums(t.new.PM2.5[,-c(1:6)]) == 0)+6))
+t2.new.SO2 <- select(t.new.SO2, -(which(colSums(t.new.SO2[,-c(1:6)]) == 0)+6))
+t2.new.NO2 <- select(t.new.NO2, -(which(colSums(t.new.NO2[,-c(1:6)]) == 0)+6))
+t2.new.CO <- select(t.new.CO, -(which(colSums(t.new.CO[,-c(1:6)]) == 0)+6))
+
+
+# 결측치(NA) 확인
+
+colSums(is.na(t2.north.CO))
+colSums(is.na(t2.north.NO2))
+colSums(is.na(t2.north.PM10))
+colSums(is.na(t2.north.PM2.5))
+colSums(is.na(t2.north.SO2))
+
+colSums(is.na(t2.new.CO))
+colSums(is.na(t2.new.NO2))
+colSums(is.na(t2.new.PM10))
+colSums(is.na(t2.new.PM2.5))
+colSums(is.na(t2.new.SO2))
+
+
+# 결측치(NA) 제거 
+
+t3.north.CO <- na.omit(t2.north.CO)
+t3.north.NO2 <- na.omit(t2.north.NO2)
+t3.north.PM10 <- na.omit(t2.north.PM10)
+t3.north.PM2.5 <- na.omit(t2.north.PM2.5)
+t3.north.SO2 <- na.omit(t2.north.SO2)
+
+t3.new.CO <- na.omit(t2.new.CO)
+t3.new.NO2 <- na.omit(t2.new.NO2)
+t3.new.PM10 <- na.omit(t2.new.PM10)
+t3.new.PM2.5 <- na.omit(t2.new.PM2.5)
+t3.new.SO2 <- na.omit(t2.new.SO2)
+
+
+t4.north.SO2 <- t3.north.SO2[,-c(1, 3:6)]
+t4.north.NO2 <- t3.north.NO2[,-c(1, 3:6)]
+t4.north.PM10 <- t3.north.PM10[,-c(1, 3:6)]
+t4.north.PM2.5 <- t3.north.PM2.5[,-c(1, 3:6)]
+t4.north.CO <- t3.north.CO[,-c(1, 3:6)]
+
+t4.new.SO2 <- t3.new.SO2[,-c(1, 3:6)]
+t4.new.NO2 <- t3.new.NO2[,-c(1, 3:6)]
+t4.new.PM10 <- t3.new.PM10[,-c(1, 3:6)]
+t4.new.PM2.5 <- t3.new.PM2.5[,-c(1, 3:6)]
+t4.new.CO <- t3.new.CO[,-c(1, 3:6)]
+
+
+# 정제 db 출력 
+write.csv(t4.north.PM10, "상관분석용_터미널정보_북항_PM10.csv")
+write.csv(t4.north.PM2.5, "상관분석용_터미널정보_북항_PM2.5.csv")
+write.csv(t4.north.SO2, "상관분석용_터미널정보_북항_SO2.csv")
+write.csv(t4.north.NO2, "상관분석용_터미널정보_북항_NO2.csv")
+write.csv(t4.north.CO, "상관분석용_터미널정보_북항_CO.csv")
+
+write.csv(t4.new.PM10, "상관분석용_터미널정보_신항_PM10.csv")
+write.csv(t4.new.PM2.5, "상관분석용_터미널정보_신항_PM2.5.csv")
+write.csv(t4.new.SO2, "상관분석용_터미널정보_신항_SO2.csv")
+write.csv(t4.new.NO2, "상관분석용_터미널정보_신항_NO2.csv")
+write.csv(t4.new.CO, "상관분석용_터미널정보_신항_CO.csv")
+
+
+
+#######################################################################################
+#
+#   Step 2. 상관 분석   
+#
+########################################################################################
+
+# 오염물질별 터미널 배출량과의 상관계수 분석 : 산점도 행렬 작성 
+require(psych)
+
+pairs.panels(t4.north.SO2, main = "북항 SO2 농도 상관분석 (with 터미널 배출량)")
+pairs.panels(t4.north.NO2, main = "북항 NO2 농도 상관분석 (with 터미널 배출량)")
+pairs.panels(t4.north.CO, main = "북항 CO 농도 상관분석 (with 터미널 배출량)")
+pairs.panels(t4.north.PM10, main = "북항 PM10 농도 상관분석 (with 터미널 배출량)")
+pairs.panels(t4.north.PM2.5, main = "북항 PM2.5 농도 상관분석 (with 터미널 배출량)")
+
+
+pairs.panels(t4.new.SO2, main = "신항 SO2 농도 상관분석 (with 터미널 배출량)")
+pairs.panels(t4.new.NO2, main = "신항 NO2 농도 상관분석 (with 터미널 배출량)")
+pairs.panels(t4.new.CO, main = "신항 CO 농도 상관분석 (with 터미널 배출량)")
+pairs.panels(t4.new.PM10, main = "신항 PM10 농도 상관분석 (with 터미널 배출량)")
+pairs.panels(t4.new.PM2.5, main = "신항 PM2.5 농도 상관분석 (with 터미널 배출량)")
+
+
+
+
+
+#######################################################################################
+#
+#   Step 3. 회귀 분석   
+#
+########################################################################################
+
+# 차트 테마 설정 
+# package 호출 및 출력 옵션 세팅 
+require(MVA)
+require(sjPlot)
+library(sjmisc)
+require(sjlabelled)
+require(mgcv)
+require(MASS)
+
+set_theme(geom.outline.color = "antiquewhite4", 
+          geom.outline.size = 1,
+          geom.label.size = 3.5, 
+          geom.label.color = "black", 
+          title.color = "black", 
+          title.size = 2, 
+          title.align = "center",
+          axis.textcolor = "blue",
+          axis.textsize.y = 1)
+
+
+# 북항 : 오염물질(SO2) 농도~터미널 배출량 회귀분석   
+
+lm.1.north.SO2 <- lm(SO2~SO2_BPT, data = t4.north.SO2, na.action=na.fail)
+print(summary(lm.1.north.SO2))
+sjp.lm(lm.1.north.SO2, show.p = T, show.legend =  T, title = "북항 SO2 농도 ~ BPT SO2 배출량")
+sjt.lm(lm.1.north.SO2)
+
+lm.2.north.SO2 <- lm(SO2~SO2_DPCT, data = t4.north.SO2, na.action=na.fail)
+print(summary(lm.2.north.SO2))
+sjp.lm(lm.2.north.SO2, show.p = T, show.legend =  T, title = "북항 SO2 농도 ~ DPCT SO2 배출량")
+
+lm.3.north.SO2 <- lm(SO2~SO2_HBCT, data = t4.north.SO2, na.action=na.fail)
+print(summary(lm.3.north.SO2))
+sjp.lm(lm.3.north.SO2, show.p = T, show.legend =  T, title = "북항 SO2 농도 ~ HBCT SO2 배출량")
+
+lm.4.north.SO2 <- lm(SO2~., data = t4.north.SO2, na.action=na.fail)
+print(summary(lm.4.north.SO2))
+sjp.lm(lm.4.north.SO2, show.p = T, show.legend =  T, title = "북항 SO2 농도 ~ BPT+DPCT+HBCT SO2 배출량")
+
+
+# 북항 : 오염물질(NO2) 농도~터미널 배출량 회귀분석   
+
+lm.1.north.NO2 <- lm(NO2~NO2_BPT, data = t4.north.NO2, na.action=na.fail)
+print(summary(lm.1.north.NO2))
+sjp.lm(lm.1.north.NO2, show.p = T, show.legend =  T, title = "북항 NO2 농도 ~ BPT NO2 배출량")
+
+lm.2.north.NO2 <- lm(NO2~NO2_DPCT, data = t4.north.NO2, na.action=na.fail)
+print(summary(lm.2.north.NO2))
+sjp.lm(lm.2.north.NO2, show.p = T, show.legend =  T, title = "북항 NO2 농도 ~ DPCT NO2 배출량")
+
+lm.3.north.NO2 <- lm(NO2~NO2_HBCT, data = t4.north.NO2, na.action=na.fail)
+print(summary(lm.3.north.NO2))
+sjp.lm(lm.3.north.NO2, show.p = T, show.legend =  T, title = "북항 NO2 농도 ~ HBCT NO2 배출량")
+
+lm.4.north.NO2 <- lm(NO2~., data = t4.north.NO2, na.action=na.fail)
+print(summary(lm.4.north.NO2))
+sjp.lm(lm.4.north.NO2, show.p = T, show.legend =  T, title = "북항 NO2 농도 ~ BPT+DPCT+HBCT NO2 배출량")
+
+
+# 북항 : 오염물질(CO) 농도~터미널 배출량 회귀분석   
+
+lm.1.north.CO <- lm(CO~CO_BPT, data = t4.north.CO, na.action=na.fail)
+print(summary(lm.1.north.CO))
+sjp.lm(lm.1.north.CO, show.p = T, show.legend =  T, title = "북항 CO 농도 ~ BPT CO 배출량")
+
+lm.2.north.CO <- lm(CO~CO_DPCT, data = t4.north.CO, na.action=na.fail)
+print(summary(lm.2.north.CO))
+sjp.lm(lm.2.north.CO, show.p = T, show.legend =  T, title = "북항 CO 농도 ~ DPCT CO 배출량")
+
+lm.3.north.CO <- lm(CO~CO_HBCT, data = t4.north.CO, na.action=na.fail)
+print(summary(lm.3.north.CO))
+sjp.lm(lm.3.north.CO, show.p = T, show.legend =  T, title = "북항 CO 농도 ~ HBCT CO 배출량")
+
+lm.4.north.CO <- lm(CO~., data = t4.north.CO, na.action=na.fail)
+print(summary(lm.4.north.CO))
+sjp.lm(lm.4.north.CO, show.p = T, show.legend =  T, title = "북항 CO 농도 ~ BPT+DPCT+HBCT CO 배출량")
+
+
+# 북항 : 오염물질(PM10) 농도~터미널 배출량 회귀분석   
+
+lm.1.north.PM10 <- lm(PM10~PM10_BPT, data = t4.north.PM10, na.action=na.fail)
+print(summary(lm.1.north.PM10))
+sjp.lm(lm.1.north.PM10, show.p = T, show.legend =  T, title = "북항 PM10 농도 ~ BPT PM10 배출량")
+
+lm.2.north.PM10 <- lm(PM10~PM10_DPCT, data = t4.north.PM10, na.action=na.fail)
+print(summary(lm.2.north.PM10))
+sjp.lm(lm.2.north.PM10, show.p = T, show.legend =  T, title = "북항 PM10 농도 ~ DPCT PM10 배출량")
+
+lm.3.north.PM10 <- lm(PM10~PM10_HBCT, data = t4.north.PM10, na.action=na.fail)
+print(summary(lm.3.north.PM10))
+sjp.lm(lm.3.north.PM10, show.p = T, show.legend =  T, title = "북항 PM10 농도 ~ HBCT PM10 배출량")
+
+lm.4.north.PM10 <- lm(PM10~., data = t4.north.PM10, na.action=na.fail)
+print(summary(lm.4.north.PM10))
+sjp.lm(lm.4.north.PM10, show.p = T, show.legend =  T, title = "북항 PM10 농도 ~ BPT+DPCT+HBCT PM10 배출량")
+
+
+# 북항 : 오염물질(PM2.5) 농도~터미널 배출량 회귀분석   
+
+lm.1.north.PM2.5 <- lm(PM2.5~PM2.5_BPT, data = t4.north.PM2.5, na.action=na.fail)
+print(summary(lm.1.north.PM2.5))
+sjp.lm(lm.1.north.PM2.5, show.p = T, show.legend =  T, title = "북항 PM2.5 농도 ~ BPT PM2.5 배출량")
+
+lm.2.north.PM2.5 <- lm(PM2.5~PM2.5_DPCT, data = t4.north.PM2.5, na.action=na.fail)
+print(summary(lm.2.north.PM2.5))
+sjp.lm(lm.2.north.PM2.5, show.p = T, show.legend =  T, title = "북항 PM2.5 농도 ~ DPCT PM2.5 배출량")
+
+lm.3.north.PM2.5 <- lm(PM2.5~PM2.5_HBCT, data = t4.north.PM2.5, na.action=na.fail)
+print(summary(lm.3.north.PM2.5))
+sjp.lm(lm.3.north.PM2.5, show.p = T, show.legend =  T, title = "북항 PM2.5 농도 ~ HBCT PM2.5 배출량")
+
+lm.4.north.PM2.5 <- lm(PM2.5~., data = t4.north.PM2.5, na.action=na.fail)
+print(summary(lm.4.north.PM2.5))
+sjp.lm(lm.4.north.PM2.5, show.p = T, show.legend =  T, title = "북항 PM2.5 농도 ~ BPT+DPCT+HBCT PM2.5 배출량")
+
+
+
+
+# 신항 : 오염물질(SO2) 농도~터미널 배출량 회귀분석   
+
+lm.1.new.SO2 <- lm(SO2~SO2_PNC, data = t4.new.SO2, na.action=na.fail)
+print(summary(lm.1.new.SO2))
+sjp.lm(lm.1.new.SO2, show.p = T, show.legend =  T, title = "신항 SO2 농도 ~ PNC SO2 배출량")
+
+lm.2.new.SO2 <- lm(SO2~SO2_PNIT, data = t4.new.SO2, na.action=na.fail)
+print(summary(lm.2.new.SO2))
+sjp.lm(lm.2.new.SO2, show.p = T, show.legend =  T, title = "신항 SO2 농도 ~ PNIT SO2 배출량")
+
+lm.3.new.SO2 <- lm(SO2~SO2_HJNC, data = t4.new.SO2, na.action=na.fail)
+print(summary(lm.3.new.SO2))
+sjp.lm(lm.3.new.SO2, show.p = T, show.legend =  T, title = "신항 SO2 농도 ~ HJNC SO2 배출량")
+
+lm.4.new.SO2 <- lm(SO2~SO2_HPNT, data = t4.new.SO2, na.action=na.fail)
+print(summary(lm.4.new.SO2))
+sjp.lm(lm.4.new.SO2, show.p = T, show.legend =  T, title = "신항 SO2 농도 ~ HPNT SO2 배출량")
+
+lm.5.new.SO2 <- lm(SO2~SO2_BNCT, data = t4.new.SO2, na.action=na.fail)
+print(summary(lm.5.new.SO2))
+sjp.lm(lm.5.new.SO2, show.p = T, show.legend =  T, title = "신항 SO2 농도 ~ BNCT SO2 배출량")
+
+
+
+# 신항 : 오염물질(NO2) 농도~터미널 배출량 회귀분석   
+
+lm.1.new.NO2 <- lm(NO2~NO2_PNC, data = t4.new.NO2, na.action=na.fail)
+print(summary(lm.1.new.NO2))
+sjp.lm(lm.1.new.NO2, show.p = T, show.legend =  T, title = "신항 NO2 농도 ~ PNC NO2 배출량")
+
+lm.2.new.NO2 <- lm(NO2~NO2_PNIT, data = t4.new.NO2, na.action=na.fail)
+print(summary(lm.2.new.NO2))
+sjp.lm(lm.2.new.NO2, show.p = T, show.legend =  T, title = "신항 NO2 농도 ~ PNIT NO2 배출량")
+
+lm.3.new.NO2 <- lm(NO2~NO2_HJNC, data = t4.new.NO2, na.action=na.fail)
+print(summary(lm.3.new.NO2))
+sjp.lm(lm.3.new.NO2, show.p = T, show.legend =  T, title = "신항 NO2 농도 ~ HJNC NO2 배출량")
+
+lm.4.new.NO2 <- lm(NO2~NO2_HPNT, data = t4.new.NO2, na.action=na.fail)
+print(summary(lm.4.new.NO2))
+sjp.lm(lm.4.new.NO2, show.p = T, show.legend =  T, title = "신항 NO2 농도 ~ HPNT NO2 배출량")
+
+lm.5.new.NO2 <- lm(NO2~NO2_BNCT, data = t4.new.NO2, na.action=na.fail)
+print(summary(lm.5.new.NO2))
+sjp.lm(lm.5.new.NO2, show.p = T, show.legend =  T, title = "신항 NO2 농도 ~ BNCT NO2 배출량")
+
+
+# 신항 : 오염물질(CO) 농도~터미널 배출량 회귀분석   
+
+lm.1.new.CO <- lm(CO~CO_PNC, data = t4.new.CO, na.action=na.fail)
+print(summary(lm.1.new.CO))
+sjp.lm(lm.1.new.CO, show.p = T, show.legend =  T, title = "신항 CO 농도 ~ PNC CO 배출량")
+
+lm.2.new.CO <- lm(CO~CO_PNIT, data = t4.new.CO, na.action=na.fail)
+print(summary(lm.2.new.CO))
+sjp.lm(lm.2.new.CO, show.p = T, show.legend =  T, title = "신항 CO 농도 ~ PNIT CO 배출량")
+
+lm.3.new.CO <- lm(CO~CO_HJNC, data = t4.new.CO, na.action=na.fail)
+print(summary(lm.3.new.CO))
+sjp.lm(lm.3.new.CO, show.p = T, show.legend =  T, title = "신항 CO 농도 ~ HJNC CO 배출량")
+
+lm.4.new.CO <- lm(CO~CO_HPNT, data = t4.new.CO, na.action=na.fail)
+print(summary(lm.4.new.CO))
+sjp.lm(lm.4.new.CO, show.p = T, show.legend =  T, title = "신항 CO 농도 ~ HPNT CO 배출량")
+
+lm.5.new.CO <- lm(CO~CO_BNCT, data = t4.new.CO, na.action=na.fail)
+print(summary(lm.5.new.CO))
+sjp.lm(lm.5.new.CO, show.p = T, show.legend =  T, title = "신항 CO 농도 ~ BNCT CO 배출량")
+
+
+
+# 신항 : 오염물질(PM10) 농도~터미널 배출량 회귀분석   
+
+lm.1.new.PM10 <- lm(PM10~PM10_PNC, data = t4.new.PM10, na.action=na.fail)
+print(summary(lm.1.new.PM10))
+sjp.lm(lm.1.new.PM10, show.p = T, show.legend =  T, title = "신항 PM10 농도 ~ PNC PM10 배출량")
+
+lm.2.new.PM10 <- lm(PM10~PM10_PNIT, data = t4.new.PM10, na.action=na.fail)
+print(summary(lm.2.new.PM10))
+sjp.lm(lm.2.new.PM10, show.p = T, show.legend =  T, title = "신항 PM10 농도 ~ PNIT PM10 배출량")
+
+lm.3.new.PM10 <- lm(PM10~PM10_HJNC, data = t4.new.PM10, na.action=na.fail)
+print(summary(lm.3.new.PM10))
+sjp.lm(lm.3.new.PM10, show.p = T, show.legend =  T, title = "신항 PM10 농도 ~ HJNC PM10 배출량")
+
+lm.4.new.PM10 <- lm(PM10~PM10_HPNT, data = t4.new.PM10, na.action=na.fail)
+print(summary(lm.4.new.PM10))
+sjp.lm(lm.4.new.PM10, show.p = T, show.legend =  T, title = "신항 PM10 농도 ~ HPNT PM10 배출량")
+
+lm.5.new.PM10 <- lm(PM10~PM10_BNCT, data = t4.new.PM10, na.action=na.fail)
+print(summary(lm.5.new.PM10))
+sjp.lm(lm.5.new.PM10, show.p = T, show.legend =  T, title = "신항 PM10 농도 ~ BNCT PM10 배출량")
+
+
+# 신항 : 오염물질(PM2.5) 농도~터미널 배출량 회귀분석   
+
+lm.1.new.PM2.5 <- lm(PM2.5~PM2.5_PNC, data = t4.new.PM2.5, na.action=na.fail)
+print(summary(lm.1.new.PM2.5))
+sjp.lm(lm.1.new.PM2.5, show.p = T, show.legend =  T, title = "신항 PM2.5 농도 ~ PNC PM2.5 배출량")
+
+lm.2.new.PM2.5 <- lm(PM2.5~PM2.5_PNIT, data = t4.new.PM2.5, na.action=na.fail)
+print(summary(lm.2.new.PM2.5))
+sjp.lm(lm.2.new.PM2.5, show.p = T, show.legend =  T, title = "신항 PM2.5 농도 ~ PNIT PM2.5 배출량")
+
+lm.3.new.PM2.5 <- lm(PM2.5~PM2.5_HJNC, data = t4.new.PM2.5, na.action=na.fail)
+print(summary(lm.3.new.PM2.5))
+sjp.lm(lm.3.new.PM2.5, show.p = T, show.legend =  T, title = "신항 PM2.5 농도 ~ HJNC PM2.5 배출량")
+
+lm.4.new.PM2.5 <- lm(PM2.5~PM2.5_HPNT, data = t4.new.PM2.5, na.action=na.fail)
+print(summary(lm.4.new.PM2.5))
+sjp.lm(lm.4.new.PM2.5, show.p = T, show.legend =  T, title = "신항 PM2.5 농도 ~ HPNT PM2.5 배출량")
+
+lm.5.new.PM2.5 <- lm(PM2.5~PM2.5_BNCT, data = t4.new.PM2.5, na.action=na.fail)
+print(summary(lm.5.new.PM2.5))
+sjp.lm(lm.5.new.PM2.5, show.p = T, show.legend =  T, title = "신항 PM2.5 농도 ~ BNCT 2.5 배출량")
+
+
+
