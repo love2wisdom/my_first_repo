@@ -1,0 +1,208 @@
+############################################################################
+#
+#                  단계 0. 준비 작업 : 함수 만들기 및 DB 연결  
+#
+############################################################################
+# 사용자 함수(DB 살펴보기) 작성 
+take.look <- function(x) {
+  table <- table(x)
+  length <- length(x)
+  unique <- length(unique(x))
+  na.count <- sum(is.na(x))
+  summary <- summary(x)
+  
+  y <- list(table, length, unique, na.count, summary)
+  attr(y, "table") <- "벡터값들의 발생 빈도 확인(table 함수 결과)"
+  attr(y, "length") <- "벡터 길이(행 갯수 : length함수 결과)"
+  attr(y, "unique") <- "고유한 벡터 갯수(unique 함수 결과를 카운팅)"
+  attr(y, "na.count") <- "NA 갯수(is.na함수 결과)"
+  attr(y, "summary") <- "Summary"
+
+  return(y)
+}
+
+
+# DBMS 연결 패키지 불러오기
+library(RODBC)
+
+# Database 접속 정보
+odbc.dsn <- "BigDataDSN"
+odbc.uid <- "KLNET"
+odbc.pwd <- "KLNET"
+
+# DB 접속
+db.connect <- odbcConnect(dsn = odbc.dsn, uid = odbc.uid, pwd = odbc.pwd, believeNRows=FALSE)
+
+
+#############################################################################
+#
+#                            단계 1. DB 불러오기   
+#
+#############################################################################
+
+# 1-1. 재고관리 관련 DB 불러오기 
+db.t.part <- sqlQuery(db.connect, paste0("SELECT *  FROM BPT.T_PART"), stringsAsFactors = F) # 부품코드 테이블(T_PART)
+db.t.ptdt <- sqlQuery(db.connect, paste0("SELECT *  FROM BPT.T_PTDT"), stringsAsFactors = F) # 부품관리 테이블(T_PTDT)  
+db.t.ptio <- sqlQuery(db.connect, paste0("SELECT * FROM BPT.T_PTIO"), stringsAsFactors = F) # 부품 입출고 관리(T_PTIO) 
+
+
+# 1-2. 통합 테이블(T_PTIV) 가져오기 
+db.t.ptiv <- sqlQuery(db.connect, paste0("SELECT A.PART_CD
+                                         , A.IO_IOCD
+                                         , A.IO_EA
+                                         , A.IO_IODT
+                                         , A.IO_SEQ
+                                         , A.IO_USER
+                                         , A.IO_DAN
+                                         , A.IO_POS
+                                         , A.IO_WSEQ
+                                         , B.EQT_CAT
+                                         , B.EQT_GRP
+                                         , B.EQT_NO
+                                         , B.USE_BAN
+                                         , B.PT_KIND
+                                         , B.MADE_FR
+                                         , C.PD_GRADE
+                                         , C.PD_SIT
+                                         , C.PD_LEAD_TIME
+                                         , C.PD_SAFETY_QTY
+                                         , CASE WHEN A.IO_IOCD = 'RI' THEN A.IO_IODT
+                                         WHEN A.IO_IOCD = 'IN' THEN A.IO_IODT
+                                         WHEN A.IO_IOCD = 'AI' THEN A.IO_IODT
+                                         ELSE NULL
+                                         END AS IN_DAY
+                                         , CASE WHEN A.IO_IOCD = 'RO' THEN A.IO_IODT
+                                         WHEN A.IO_IOCD = 'OT' THEN A.IO_IODT
+                                         WHEN A.IO_IOCD = 'AO' THEN A.IO_IODT
+                                         ELSE NULL
+                                         END AS OUT_DAY
+                                         , CASE WHEN A.IO_IOCD = 'RI' THEN A.IO_EA
+                                         WHEN A.IO_IOCD = 'IN' THEN A.IO_EA
+                                         WHEN A.IO_IOCD = 'AI' THEN A.IO_EA
+                                         ELSE 0
+                                         END AS IN_STK
+                                         , CASE WHEN A.IO_IOCD = 'RO' THEN A.IO_EA
+                                         WHEN A.IO_IOCD = 'OT' THEN A.IO_EA
+                                         WHEN A.IO_IOCD = 'AO' THEN A.IO_EA
+                                         ELSE 0
+                                         END AS OUT_STK
+                                         , CASE WHEN A.IO_IOCD = 'RI' THEN A.IO_EA
+                                         WHEN A.IO_IOCD = 'IN' THEN A.IO_EA
+                                         ELSE 0
+                                         END AS NET_IN_STK
+                                         , CASE WHEN A.IO_IOCD = 'RO' THEN A.IO_EA
+                                         WHEN A.IO_IOCD = 'OT' THEN A.IO_EA
+                                         ELSE 0
+                                         END AS NET_OUT_STK  
+                                         FROM BPT.T_PTIO A
+                                         , BPT.T_PART B
+                                         , BPT.T_PTDT C
+                                         WHERE 1 = 1
+                                         AND A.PART_CD = B.PART_CD(+)
+                                         AND A.PART_CD = C.PART_CD(+)"), stringsAsFactors = F) # T_PART, T_PTIO, T_PTDT 통합테이블(T_PTIV) 
+
+
+##############################################################################
+#
+#                            단계 2. 기술 통계용 DB 만들기 
+#
+##############################################################################
+
+# 2-1. 재고관리 관련 DB 생성 
+result.t.part <- lapply(db.t.part, take.look)
+result.t.ptdt <- lapply(db.t.ptdt, take.look)
+result.t.ptio <- lapply(db.t.ptio, take.look)
+# result.t.ptio.tol <- lapply(db.t.ptio.tol, take.look)
+# result.t.part.con <- lapply(db.t.part.con, take.look)
+
+
+# 2-2. 장비제원 관련 DB 생성 
+# result.t.equi <- lapply(db.t.equi, take.look)
+# result.t.ccra <- lapply(db.t.ccra, take.look)
+# result.t.tcra <- lapply(db.t.tcra, take.look)
+# result.t.othe <- lapply(db.t.othe, take.look)
+
+
+# 2-3. 고장장비 관련 DB 생성 
+# result.t.work1 <- lapply(db.t.work1, take.look)
+# result.t.dayplan <- lapply(db.t.dayplan, take.look)
+# result.t.dp.sabn <- lapply(db.t.dp.sabn, take.look)
+# result.t.wk.sabn <- lapply(db.t.wk.sabn, take.look)
+
+
+# 2-4. 예방정비 관련 DB 생성 
+# result.t.re.pmgong <- lapply(db.t.re.pmgong, take.look)
+# result.t.re.pmcode <- lapply(db.t.re.pmcode, take.look)
+# result.t.re.pmsoyo <- lapply(db.t.re.pmsoyo, take.look)
+# result.t.re.pmdesc <- lapply(db.t.re.pmdesc, take.look)
+# result.t.re.pmbase <- lapply(db.t.re.pmbase, take.look)
+# result.t.re.pmplan <- lapply(db.t.re.pmplan, take.look)
+# result.t.re.pmwork <- lapply(db.t.re.pmwork, take.look)
+# result.t.re.pmwork.log <- lapply(db.t.re.pmwork.log, take.look)
+
+
+
+
+
+
+##############################################################################
+#
+#                            단계 3.  DB 출력하기    
+#
+##############################################################################
+
+require(writexl)
+
+# BPT TOS(장비정비) DB 엑셀파일로 출력 
+
+list.db.1 <- list(db.t.part, db.t.part.con, db.t.ptdt, db.t.ptio, db.t.ptio.tol)
+list.db.2 <- list(db.t.equi.bind, db.t.equi, db.t.ccra, db.t.tcra, db.t.othe)
+list.db.3 <- list(db.t.work1, db.t.dayplan, db.t.dp.sabn, db.t.wk.sabn)
+list.db.4 <- list(db.t.re.pmbase, db.t.re.pmcode, db.t.re.pmdesc, db.t.re.pmplan, db.t.re.pmsoyo, db.t.re.pmwork, db.t.re.pmwork.log)
+
+write_xlsx(list.db.1, path = "부품재고관련_DB.xlsx")
+write_xlsx(db.t.equi.bind, path = "장비제원관련_DB.xlsx")
+write_xlsx(list.db.3, path = "고장정비관련_DB.xlsx")
+write_xlsx(list.db.4, path = "예방정비관련_DB.xlsx")
+
+
+
+# 텍스트 마이닝 대상 벡터 엑셀파일로 출력 
+write_xlsx(data.frame(result.t.ptio[["IO_WSEQ"]][[1]]), path = "PTIO_IO_WSEQ_리스트.xlsx")
+
+write_xlsx(data.frame(result.t.work1[["POINT"]][[1]]), path = "WORK1_POINT(정비위치)_리스트.xlsx")
+write_xlsx(data.frame(result.t.work1[["JOURNAL"]][[1]]), path = "WORK1_JOURNAL(작업내용)_리스트.xlsx")
+write_xlsx(data.frame(result.t.work1[["PART"]][[1]]), path = "WORK1_PART_(소요부품)리스트.xlsx")
+
+write_xlsx(data.frame(result.t.dayplan[["EQUIM_NM"]][[1]]), path = "DAYPLAN_EQUIM_NM_(작업호기)리스트.xlsx")
+write_xlsx(data.frame(result.t.dayplan[["JOB_INSP"]][[1]]), path = "DAYPLAN_JOP_INSP_(정비 작업개소)리스트.xlsx")
+write_xlsx(data.frame(result.t.dayplan[["JOURNAL"]][[1]]), path = "DAYPLAN_JOURNAL_(작업지시내용)리스트.xlsx")
+
+write_xlsx(data.frame(result.t.re.pmcode[["PM_CDNM"]][[1]]), path = "RE_PMCODE_CDNM_(정비코드명)리스트.xlsx")
+write_xlsx(data.frame(result.t.re.pmwork[["ACT_REMK"]][[1]]), path = "RE_PMWORK_ACT_REMARK_(조치내역)리스트.xlsx")
+write_xlsx(data.frame(result.t.re.pmwork.log[["ACT_REMK"]][[1]]), path = "RE_PMWORK_LOG_ACT_REMARK_(조치내역)리스트.xlsx")
+
+
+# BPT IT운영팀 문의용 자료 출력 
+# 예방정비 작업 코드 
+pmcode <- as.data.frame(unique(db.t.re.pmcode$PM_CODE))
+names(pmcode) <- c("PM_CODE")
+write_xlsx(pmcode, "pmcode.xlsx")
+
+# 작업자 사번 
+sabn <- as.data.frame(unique(db.t.wk.sabn$SABN_NO))
+names(sabn) <- c("SABN")
+write_xlsx(sabn, "sabn.xlsx")
+
+
+
+# 부품 인벤토리 LIST를 dataframe으로 전환후  출력 
+
+require(data.table)
+
+df.new.inven.b <- rbindlist(filter.inven.b)
+
+setwd("D:/bigdata_secondary/800.파일공유/804.데이터분석공유/박세훈 자료/00-1. My Work_(진행중)/SFR-011_장비 부품 재고 관리/02. Cleaned_Data")
+
+write_xlsx(df.new.inven.b, "B등급 부품 인벤토리.xlsx")
+write_xlsx(db.t.ptsr.b, "SCperf함수 인자 및 수행 결과_(B등급).xlsx")
