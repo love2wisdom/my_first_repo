@@ -71,3 +71,41 @@ par(new = T)
 plot(x, cdf1.5,  ylim = yrange, type = "l", col = "orange")
 
 
+library(ExtDist)
+
+# Parameter estimation for a distribution with known shape parameters
+X <- rWeibull(n=1000, params=list(shape=1.5, scale=0.5))
+est.par <- eWeibull(X=X, method="numerical.MLE"); est.par
+plot(est.par)
+
+#  Fitted density curve and histogram
+den.x <- seq(min(X),max(X),length=100)
+den.y <- dWeibull(den.x,shape=est.par$shape,scale=est.par$scale)
+hist(X, breaks=10, col="red", probability=TRUE, ylim = c(0,1.1*max(den.y)))
+lines(den.x, den.y, col="blue", lwd=2)   # Original data
+lines(density(X), lty=2)                 # Fitted curve
+
+# Extracting shape and scale parameters
+est.par[attributes(est.par)$par.type=="shape"]
+est.par[attributes(est.par)$par.type=="scale"]
+
+# Parameter Estimation for a distribution with unknown shape parameters
+# Example from: Rinne (2009) Dataset p.338 and example pp.418-419
+# Parameter estimates are given as shape = 99.2079 and scale = 2.5957. The log-likelihood
+# for this data and Rinne's parameter estimates is -1163.278.
+data <- c(35,38,42,56,58,61,63,76,81,83,86,90,99,104,113,114,117,119,141,183)
+est.par <- eWeibull(X=data, method="numerical.MLE"); est.par
+plot(est.par)
+
+# Estimates calculated by eWeibull differ from those given by Rinne(2009).
+# However, eWeibull's parameter estimates appear to be an improvement, due to a larger
+# log-likelihood of -99.09037 (as given by lWeibull below).
+
+ # log-likelihood function
+lWeibull(data, param = est.par)
+
+# evaluate the precision of estimation by Hessian matrix
+H <- attributes(est.par)$nll.hessian
+var <- solve(H)
+se <- sqrt(diag(var));se
+
