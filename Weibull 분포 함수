@@ -1,0 +1,73 @@
+# R 분포함수 접두어 
+# r : 난수 함수
+# d : 확률밀도 함수
+# p : 누적분포 함수
+# q : 분위수 함수 
+
+#  정규분포 함수 
+rnorm(n, mean = 0, sd = 1)
+dnorm(x, mean = 0, sd = 1)
+pnorm(q, mean = 0, sd = 1, lower.tail = T)
+qnorm(p, mean = 0, sd = 1, lover.tail = T)
+
+# 몸무게가 65.5kg 이고 표준편차가 3인 1000명의 몸무게를 난수로 발생시키고 확률밀도를 그려라. 
+x <- rnorm(1000, 65.5, 3)
+x <- sort(x)
+d <- dnorm(x, 65.5, 3)
+plot(x, d, main = "몸무게 분포", xlab = "몸무게", type = "l")
+
+
+# Weibull분포 함수
+rweibull(n, shape, scale = 1)
+dweibull(x, shape, scale = 1, log = FALSE)
+pweibull(q, shape, scale = 1, lower.tail = TRUE, log.p = FALSE)
+qweibull(p, shape, scale = 1, lower.tail = TRUE, log.p = FALSE)
+
+
+x <- rweibull(1000, shape = 1, scale = 1) 
+x <- sort(x)
+pdf1.1 <- dweibull(x, shape = 1, scale = 2.99, log = F)
+pdf1.2 <- dweibull(x, shape = 1.5, scale = 2.99, log = F)
+pdf1.3 <- dweibull(x, shape = 2, scale = 2.99, log = F)
+pdf1.4 <- dweibull(x, shape = 2.5, scale = 2.99, log = F)
+pdf1.5 <- dweibull(x, shape = 3, scale = 2.99, log = F)
+
+
+pdf2.1 <- dweibull(x, shape = 1.99, scale = 2, log = F)
+pdf2.2 <- dweibull(x, shape = 1.99, scale = 2.5, log = F)
+pdf2.3 <- dweibull(x, shape = 1.99, scale = 3, log = F)
+pdf2.4 <- dweibull(x, shape = 1.99, scale = 3.5, log = F)
+pdf2.5 <- dweibull(x, shape = 1.99, scale = 4, log = F)
+
+
+pdf3.1 <- dweibull(x, shape = 1, scale = 2, log = F)
+pdf3.2 <- dweibull(x, shape = 1.5, scale = 2.5, log = F)
+pdf3.3 <- dweibull(x, shape = 2, scale = 3, log = F)
+pdf3.4 <- dweibull(x, shape = 2.5, scale = 3.5, log = F)
+pdf3.5 <- dweibull(x, shape = 3, scale = 4, log = F)
+
+
+plot(x, d1, main = "고장확률", xlab = "연령", type = "l")
+plot(x, d2, main = "고장확률", xlab = "연령", type = "l")
+plot(x, d3, main = "고장확률", xlab = "연령", type = "l")
+
+
+cdf1.1 <- pweibull(x, shape = 1, scale = 2.99, log = F)
+cdf1.2 <- pweibull(x, shape = 1.5, scale = 2.99, log = F)
+cdf1.3 <- pweibull(x, shape = 2, scale = 2.99, log = F)
+cdf1.4 <- pweibull(x, shape = 2.5, scale = 2.99, log = F)
+cdf1.5 <- pweibull(x, shape = 3, scale = 2.99, log = F)
+
+par(bg = "white")
+yrange <- c(0, 1)
+plot(x, cdf1.1, main = "고장확률", xlab = "연령", ylim = yrange,  type = "l", col = "green")
+par(new = T)
+plot(x, cdf1.2,  ylim = yrange, type = "l", col = "black")
+par(new = T)
+plot(x, cdf1.3,  ylim = yrange, type = "l", col = "red")
+par(new = T)
+plot(x, cdf1.4,  ylim = yrange, type = "l", col = "blue")
+par(new = T)
+plot(x, cdf1.5,  ylim = yrange, type = "l", col = "orange")
+
+
