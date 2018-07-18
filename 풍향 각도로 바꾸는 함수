@@ -49,35 +49,32 @@ NW.angle()
 NNW.angle()
 
 
-decision.angle <- function (x, wind_direct = NULL, ...) {
- angle <- vector()
- wind_direct <- character()
- n <- length(x)
+decision.angle <- function (x) {
+  angle <- vector()
+  n <- length(x)
   
- for (i in 1:n) {
-     wind_direct <- x[i]
-     angle[i] <- switch (wind_direct, 
-                   북 = {N.angle()}, 
-                   북북동 = {NNE.angle()}, 
-                   북동 = {NE.angle()}, 
-                   동북동 = {ENE.angle()}, 
-                   동 = {E.angle()},
-                   동남동 = {ESE.angel()}, 
-                   남동 = {SE.angle()}, 
-                   남남동 = {SSE.angle()}, 
-                   남 = {S.angle()}, 
-                   남남서 = {SSW.angle()},
-                   남서 = {SW.angle()}, 
-                   서남서 = {WSW.angle()}, 
-                   서 = {W.angle()}, 
-                   서북서 = {WNW.angle()}, 
-                   북서 = {NW.angle()}, 
-                   북북서 = {NNW.angle()})
+  for (i in 1:n) {
+    angle[i] <- if(x[i] == "북") {N.angle()}
+                else if(x[i] == "북북동") {NNE.angle()}
+                else if(x[i] == "북동") {NE.angle()}
+                else if(x[i] == "동북동") {ENE.angle()}        
+                else if(x[i] == "동") {E.angle()}
+                else if(x[i] == "동남동") {ESE.angel()} 
+                else if(x[i] == "남동") {SE.angle()} 
+                else if(x[i] == "남남동") {SSE.angle()} 
+                else if(x[i] == "남") {S.angle()} 
+                else if(x[i] == "남남서") {SSW.angle()}
+                else if(x[i] == "남서") {SW.angle()} 
+                else if(x[i] == "서남서") {WSW.angle()} 
+                else if(x[i] == "서") {W.angle()} 
+                else if(x[i] == "서북서") {WNW.angle()} 
+                else if(x[i] == "북서") {NW.angle()} 
+                else if(x[i] == "북북서") {NNW.angle()}
+                else {"NA"}
     cat(i ," 번째 풍향 : ", x[i], "각도 : ", angle[i], "\n", sep = "    ")
-    }
- return(angle)  
+  }
+  return(angle)  
 }
-
 
 NNE.angle()
 
