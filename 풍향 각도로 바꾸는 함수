@@ -1,0 +1,86 @@
+
+N.angle <- function() {
+  if(sample(0:1, 1) == 1) {
+    min <- 0
+    max <- 11.25
+    y <- floor(sample(min:max, 1))
+  } else {
+  min <- 348.75
+  max <- 360
+  y <- floor(sample(min:max, 1))
+  }
+  return(y)
+}
+
+N.angle()
+
+NNE.angle <- function() {min <- 11.25; max <- 33.75; y <- floor(sample(x = min:max, 1)); return(y)}
+NE.angle <- function() {min <- 33.75; max <- 56.25; y <- floor(sample(x = min:max, 1)); return(y)}
+ENE.angle <- function() {min <- 56.25; max <- 78.75; y <- floor(sample(x = min:max, 1)); return(y)}
+E.angle <- function() {min <- 78.75; max <- 101.25; y <- floor(sample(x = min:max, 1)); return(y)}
+ESE.angle <- function() {min <- 101.25; max <- 123.75; y <- floor(sample(x = min:max, 1)); return(y)}
+SE.angle <- function() {min <- 123.75; max <- 146.25; y <- floor(sample(x = min:max, 1)); return(y)}
+SSE.angle <- function() {min <- 146.25; max <- 168.75; y <- floor(sample(x = min:max, 1)); return(y)}
+S.angle <- function() {min <- 168.75; max <- 191.25; y <- floor(sample(x = min:max, 1)); return(y)}
+SSW.angle <- function() {min <- 191.25; max <- 213.75; y <- floor(sample(x = min:max, 1)); return(y)}
+SW.angle <- function() {min <- 213.75; max <- 236.25; y <- floor(sample(x = min:max, 1)); return(y)}
+WSW.angle <- function() {min <- 236.25; max <- 258.75; y <- floor(sample(x = min:max, 1)); return(y)}
+W.angle <- function() {min <- 258.75; max <- 281.25; y <- floor(sample(x = min:max, 1)); return(y)}
+WNW.angle <- function() {min <- 281.25; max <- 303.75; y <- floor(sample(x = min:max, 1)); return(y)}
+NW.angle <- function() {min <- 303.75; max <- 326.25; y <- floor(sample(x = min:max, 1)); return(y)}
+NNW.angle <- function() {min <- 326.25; max <- 348.75; y <- floor(sample(x = min:max, 1)); return(y)}
+
+
+
+NNE.angle()
+NE.angle()
+ENE.angle()
+E.angle()
+ESE.angle()
+SE.angle()
+SSE.angle()
+S.angle()
+SSW.angle()
+SW.angle()
+WSW.angle()
+W.angle()
+WNW.angle()
+NW.angle()
+NNW.angle()
+
+
+decision.angle <- function (x, wind_direct = NULL, ...) {
+ angle <- vector()
+ wind_direct <- character()
+ n <- length(x)
+  
+ for (i in 1:n) {
+     wind_direct <- x[i]
+     angle[i] <- switch (wind_direct, 
+                   북 = {N.angle()}, 
+                   북북동 = {NNE.angle()}, 
+                   북동 = {NE.angle()}, 
+                   동북동 = {ENE.angle()}, 
+                   동 = {E.angle()},
+                   동남동 = {ESE.angel()}, 
+                   남동 = {SE.angle()}, 
+                   남남동 = {SSE.angle()}, 
+                   남 = {S.angle()}, 
+                   남남서 = {SSW.angle()},
+                   남서 = {SW.angle()}, 
+                   서남서 = {WSW.angle()}, 
+                   서 = {W.angle()}, 
+                   서북서 = {WNW.angle()}, 
+                   북서 = {NW.angle()}, 
+                   북북서 = {NNW.angle()})
+    cat(i ," 번째 풍향 : ", x[i], "각도 : ", angle[i], "\n", sep = "    ")
+    }
+ return(angle)  
+}
+
+
+NNE.angle()
+
+
+a <- as.character(t.north.js.CO$풍향)
+b <- decision.angle(a)
