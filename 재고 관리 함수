@@ -45,6 +45,10 @@ decide.first.date(inven.b[[12]], "2010-1-1")
 # y : 조회 기간의 종료 일자 : Date 형식 "YY-m-d" 예) "2017-12-31"
 #
 ##############################################################################
+
+
+#  (완성)  
+
 decide.last.date <- function(x, y) {
   n <- nrow(x)
   if(n <= 0) {
@@ -287,7 +291,9 @@ str(b)
 # x : 부품별 입출고이력 data.frame  :  입력 예시) inven.b[[12]] 
 # y : 시작 일자 : Date 형식 "YY-m-d" 예) "2012-12-28"
 # z : 종료 일자 : Date 형식 "YY-m-d" 예) "2017-12-31"
+# sl : 서비스 수준 
 # PART_CD : 부품코드 
+
 # START_DAY : 조회 시작 일자 
 # END_DAY : 조회 완료 일지 
 # DMD_SUM : 조회 기간 동안의 수요량 
@@ -296,7 +302,7 @@ str(b)
 #                 HOL_COST(부품당 유지 비용), SHT_PNT_COST(재고 부족으로 인한 단위 손실 비용) 
 # ROP 함수 인자 : SVC_LV(서비스 레벨 : 0~1), YR_AVG_DMD(연 평균 수요량), 
 #                 SD(수요량 표준 편차), LD_TM(리드 타임)
-# SS 함수 인자 : SVC_LV(서비스 레벨 : 0~1), SD(수요량 표준 편차), LD_TM(리드 타임)
+# SS 함수 인자 : SVC_LV(서비스 레벨 : 0~1), SD(수요량 표준 편차), PD_LEAD_TIME(리드 타임)
 #
 ##############################################################################
 
@@ -308,7 +314,7 @@ pmi.data.estimate <- function(x, y, z, sl = 1) {
   stock <- stock.estimate(x, y, z)
   
   cost.per.order <- cpo.estimate(x, y, z)[[3]]
-  hold.cost <- 0.025 * cost.per.order
+  hold.cost <- 0.25 * cost.per.order
   lead.time <- ifelse(is.na(x$PD_LEAD_TIME), 1, x$PD_LEAD_TIME)
   service_level <- 0.9
   
@@ -317,17 +323,17 @@ pmi.data.estimate <- function(x, y, z, sl = 1) {
     summarize(PART_CD = unique(PART_CD),
               STRAT_DAY = start.time, 
               END_DAY = end.time,
+              TIME_LEN = time_length(inter, unit = "day"),
               DMD_SUM = sum(OUT_STK), 
               AVG_REAL_STK = mean(stock$REAL_STOCK, na.rm = T) ,
               AVG_DISPLAY_STK = mean(stock$DISPLAY_STOCK, na.rm = T), 
-              TIME_LEN = time_length(inter), 
               YR_DMD = round(DMD_SUM/(TIME_LEN/(60*60*24*365)), 3),
               ORD_COST = cost.per.order, 
               HLD_COST = hold.cost, 
               SHT_PNT_COST = 0,
               SVC_LV = service_level, 
               SD = round(sd(OUT_STK), 3), 
-              SCP_LEAD_TIME = mean(abs(lead.time))) %>% 
+              PD_LEAD_TIME = mean(abs(lead.time))) %>% 
     arrange(PART_CD)
   return(aggre)
 }
@@ -338,24 +344,396 @@ pmi.data.estimate(inven.b[[243]], "2009-10-10", "2015-12-10")
 
 x <- inven.b[[1]]
 y <- "2009-10-10"
-z <- "2015-12-10"
+z <- "2009-12-10"
+inter <- y %--% z
+time_length(inter, unit = "day")
+
+
+
+#################################################################################################################
+
+############################################################################
+#
+#                  단계 0. 준비 작업 : 함수 만들기 및 DB 연결  
+#
+############################################################################
+# 사용자 함수(DB 살펴보기) 작성 
+take.look <- function(x) {
+  table <- table(x)
+  length <- length(x)
+  unique <- length(unique(x))
+  na.count <- sum(is.na(x))
+  summary <- summary(x)
+  
+  y <- list(table, length, unique, na.count, summary)
+  attr(y, "table") <- "벡터값들의 발생 빈도 확인(table 함수 결과)"
+  attr(y, "length") <- "벡터 길이(행 갯수 : length함수 결과)"
+  attr(y, "unique") <- "고유한 벡터 갯수(unique 함수 결과를 카운팅)"
+  attr(y, "na.count") <- "NA 갯수(is.na함수 결과)"
+  attr(y, "summary") <- "Summary"
+
+  return(y)
+}
+
+
+# DBMS 연결 패키지 불러오기
+library(RODBC)
+
+# Database 접속 정보
+odbc.dsn <- "BigDataDSN"
+odbc.uid <- "KLNET"
+odbc.pwd <- "KLNET"
+
+# DB 접속
+db.connect <- odbcConnect(dsn = odbc.dsn, uid = odbc.uid, pwd = odbc.pwd, believeNRows=FALSE)
+
+
+#############################################################################
+#
+#                            단계 1. DB 불러오기   
+#
+#############################################################################
+
+# 1-1. 재고관리 관련 DB 불러오기 
+db.t.part <- sqlQuery(db.connect, paste0("SELECT *  FROM BPT.T_PART"), stringsAsFactors = F) # 부품코드 테이블(T_PART)
+db.t.ptdt <- sqlQuery(db.connect, paste0("SELECT *  FROM BPT.T_PTDT"), stringsAsFactors = F) # 부품관리 테이블(T_PTDT)  
+db.t.ptio <- sqlQuery(db.connect, paste0("SELECT * FROM BPT.T_PTIO"), stringsAsFactors = F) # 부품 입출고 관리(T_PTIO) 
+
+
+# 1-2. 통합 테이블(T_PTIV) 가져오기 
+db.t.ptiv <- sqlQuery(db.connect, paste0("SELECT A.PART_CD
+                                         , A.IO_IOCD
+                                         , A.IO_EA
+                                         , A.IO_IODT
+                                         , A.IO_SEQ
+                                         , A.IO_USER
+                                         , A.IO_DAN
+                                         , A.IO_POS
+                                         , A.IO_WSEQ
+                                         , B.EQT_CAT
+                                         , B.EQT_GRP
+                                         , B.EQT_NO
+                                         , B.USE_BAN
+                                         , B.PT_KIND
+                                         , B.MADE_FR
+                                         , C.PD_GRADE
+                                         , C.PD_SIT
+                                         , C.PD_LEAD_TIME
+                                         , C.PD_SAFETY_QTY
+                                         , CASE WHEN A.IO_IOCD = 'RI' THEN A.IO_IODT
+                                         WHEN A.IO_IOCD = 'IN' THEN A.IO_IODT
+                                         WHEN A.IO_IOCD = 'AI' THEN A.IO_IODT
+                                         ELSE NULL
+                                         END AS IN_DAY
+                                         , CASE WHEN A.IO_IOCD = 'RO' THEN A.IO_IODT
+                                         WHEN A.IO_IOCD = 'OT' THEN A.IO_IODT
+                                         WHEN A.IO_IOCD = 'AO' THEN A.IO_IODT
+                                         ELSE NULL
+                                         END AS OUT_DAY
+                                         , CASE WHEN A.IO_IOCD = 'RI' THEN A.IO_EA
+                                         WHEN A.IO_IOCD = 'IN' THEN A.IO_EA
+                                         WHEN A.IO_IOCD = 'AI' THEN A.IO_EA
+                                         ELSE 0
+                                         END AS IN_STK
+                                         , CASE WHEN A.IO_IOCD = 'RO' THEN A.IO_EA
+                                         WHEN A.IO_IOCD = 'OT' THEN A.IO_EA
+                                         WHEN A.IO_IOCD = 'AO' THEN A.IO_EA
+                                         ELSE 0
+                                         END AS OUT_STK
+                                         , CASE WHEN A.IO_IOCD = 'RI' THEN A.IO_EA
+                                         WHEN A.IO_IOCD = 'IN' THEN A.IO_EA
+                                         ELSE 0
+                                         END AS NET_IN_STK
+                                         , CASE WHEN A.IO_IOCD = 'RO' THEN A.IO_EA
+                                         WHEN A.IO_IOCD = 'OT' THEN A.IO_EA
+                                         ELSE 0
+                                         END AS NET_OUT_STK  
+                                         FROM BPT.T_PTIO A
+                                         , BPT.T_PART B
+                                         , BPT.T_PTDT C
+                                         WHERE 1 = 1
+                                         AND A.PART_CD = B.PART_CD(+)
+                                         AND A.PART_CD = C.PART_CD(+)"), stringsAsFactors = F) # T_PART, T_PTIO, T_PTDT 통합테이블(T_PTIV) 
+
+
+##############################################################################
+#
+#                            단계 2. 기술 통계용 DB 만들기 
+#
+##############################################################################
+
+# 2-1. 재고관리 관련 DB 생성 
+result.t.part <- lapply(db.t.part, take.look)
+result.t.ptdt <- lapply(db.t.ptdt, take.look)
+result.t.ptio <- lapply(db.t.ptio, take.look)
+# result.t.ptio.tol <- lapply(db.t.ptio.tol, take.look)
+# result.t.part.con <- lapply(db.t.part.con, take.look)
+
+
+# 2-2. 장비제원 관련 DB 생성 
+# result.t.equi <- lapply(db.t.equi, take.look)
+# result.t.ccra <- lapply(db.t.ccra, take.look)
+# result.t.tcra <- lapply(db.t.tcra, take.look)
+# result.t.othe <- lapply(db.t.othe, take.look)
+
+
+# 2-3. 고장장비 관련 DB 생성 
+# result.t.work1 <- lapply(db.t.work1, take.look)
+# result.t.dayplan <- lapply(db.t.dayplan, take.look)
+# result.t.dp.sabn <- lapply(db.t.dp.sabn, take.look)
+# result.t.wk.sabn <- lapply(db.t.wk.sabn, take.look)
+
+
+# 2-4. 예방정비 관련 DB 생성 
+# result.t.re.pmgong <- lapply(db.t.re.pmgong, take.look)
+# result.t.re.pmcode <- lapply(db.t.re.pmcode, take.look)
+# result.t.re.pmsoyo <- lapply(db.t.re.pmsoyo, take.look)
+# result.t.re.pmdesc <- lapply(db.t.re.pmdesc, take.look)
+# result.t.re.pmbase <- lapply(db.t.re.pmbase, take.look)
+# result.t.re.pmplan <- lapply(db.t.re.pmplan, take.look)
+# result.t.re.pmwork <- lapply(db.t.re.pmwork, take.look)
+# result.t.re.pmwork.log <- lapply(db.t.re.pmwork.log, take.look)
 
 
 
 
-sm.db <- data.frame( PART_CD = c("CAMKA007HS", "CAMKA007HS", "CAMKA007HS", "CAMKA007HS", "CAMKA007HS", "CAMKA007HS", 
-                                  "CAMKA007HS", "CAMKA007HS", "CAMKA007HS", "CAMKA007HS", "CAMKA007HS"), 
-                     IO_IOCD  = c("IN", "IN", "AI", "OT", "AO", "AI", "AO", "OT", "IN", "RI", "AO"), 
-                     IO_IODT  = c("2006-02-27", "2007-05-30", "2009-12-30", "2009-12-30", "2013-08-01", 
-                                  "2015-03-29", "2015-07-12", "2015-07-12", "2015-07-28", "2015-07-28", "2015-07-30"),
-                     IO_EA = c(2, 4, 2, 2, 1, 3, 2, 2, 6, 4, 2), 
-                     IO_DAN = c(368000, 1536000, 0, 1536000, 0, 0, 0, 1536000, 120000, 80000, 0), 
-                     IN_DAY = c("2006-02-27", "2007-05-30", "2009-12-30", NA, NA, 
-                                 "2015-03-29", NA, NA, "2015-07-28", "2015-07-28", NA),
-                     OUT_DAY = c(NA, NA, NA, "2009-12-30", "2013-08-01", 
-                                  NA, "2015-07-12", "2015-07-12", NA, NA, "2015-07-30"),
-                     IN_STK = c(2, 4, 2, 0, 0, 3, 0, 0, 6, 4, 0), 
-                     OUT_STK = c(0, 0, 0, 2, 1, 0, 2, 2, 0, 0, 2))
+
+
+##############################################################################
+#
+#                            단계 3.  DB 출력하기    
+#
+##############################################################################
+
+require(writexl)
+
+# BPT (장비정비) DB 엑셀파일로 출력 
+
+list.db.1 <- list(db.t.part, db.t.part.con, db.t.ptdt, db.t.ptio, db.t.ptio.tol)
+list.db.2 <- list(db.t.equi.bind, db.t.equi, db.t.ccra, db.t.tcra, db.t.othe)
+list.db.3 <- list(db.t.work1, db.t.dayplan, db.t.dp.sabn, db.t.wk.sabn)
+list.db.4 <- list(db.t.re.pmbase, db.t.re.pmcode, db.t.re.pmdesc, db.t.re.pmplan, db.t.re.pmsoyo, db.t.re.pmwork, db.t.re.pmwork.log)
+
+write_xlsx(list.db.1, path = "부품재고관련_DB.xlsx")
+write_xlsx(db.t.equi.bind, path = "장비제원관련_DB.xlsx")
+write_xlsx(list.db.3, path = "고장정비관련_DB.xlsx")
+write_xlsx(list.db.4, path = "예방정비관련_DB.xlsx")
+
+
+
+# 텍스트 마이닝 대상 벡터 엑셀파일로 출력 
+write_xlsx(data.frame(result.t.ptio[["IO_WSEQ"]][[1]]), path = "PTIO_IO_WSEQ_리스트.xlsx")
+
+write_xlsx(data.frame(result.t.work1[["POINT"]][[1]]), path = "WORK1_POINT(정비위치)_리스트.xlsx")
+write_xlsx(data.frame(result.t.work1[["JOURNAL"]][[1]]), path = "WORK1_JOURNAL(작업내용)_리스트.xlsx")
+write_xlsx(data.frame(result.t.work1[["PART"]][[1]]), path = "WORK1_PART_(소요부품)리스트.xlsx")
+
+write_xlsx(data.frame(result.t.dayplan[["EQUIM_NM"]][[1]]), path = "DAYPLAN_EQUIM_NM_(작업호기)리스트.xlsx")
+write_xlsx(data.frame(result.t.dayplan[["JOB_INSP"]][[1]]), path = "DAYPLAN_JOP_INSP_(정비 작업개소)리스트.xlsx")
+write_xlsx(data.frame(result.t.dayplan[["JOURNAL"]][[1]]), path = "DAYPLAN_JOURNAL_(작업지시내용)리스트.xlsx")
+
+write_xlsx(data.frame(result.t.re.pmcode[["PM_CDNM"]][[1]]), path = "RE_PMCODE_CDNM_(정비코드명)리스트.xlsx")
+write_xlsx(data.frame(result.t.re.pmwork[["ACT_REMK"]][[1]]), path = "RE_PMWORK_ACT_REMARK_(조치내역)리스트.xlsx")
+write_xlsx(data.frame(result.t.re.pmwork.log[["ACT_REMK"]][[1]]), path = "RE_PMWORK_LOG_ACT_REMARK_(조치내역)리스트.xlsx")
+
+
+# BPT IT운영팀 문의용 자료 출력 
+# 예방정비 작업 코드 
+pmcode <- as.data.frame(unique(db.t.re.pmcode$PM_CODE))
+names(pmcode) <- c("PM_CODE")
+write_xlsx(pmcode, "pmcode.xlsx")
+
+# 작업자 사번 
+sabn <- as.data.frame(unique(db.t.wk.sabn$SABN_NO))
+names(sabn) <- c("SABN")
+write_xlsx(sabn, "sabn.xlsx")
+
+
+
+# 부품 인벤토리 LIST를 dataframe으로 전환후  출력 
+
+require(data.table)
+
+df.new.inven.b <- rbindlist(filter.inven.b)
+
+setwd("D:/bigdata_secondary/800.파일공유/804.데이터분석공유/박세훈 자료/00-1. My Work_(진행중)/SFR-011_장비 부품 재고 관리/02. Cleaned_Data")
+
+write_xlsx(df.new.inven.b, "B등급 부품 인벤토리.xlsx")
+write_xlsx(db.t.ptsr.b, "SCperf함수 인자 및 수행 결과_(B등급).xlsx")
+
+
+# DB 서버에 올리기 
+
+# DBMS 연결 패키지 불러오기
+library(RODBC)
+
+# Database 접속 정보
+odbc.dsn <- "BigDataDSN"
+odbc.uid <- "KLNET"
+odbc.pwd <- "KLNET"
+
+# DB 접속
+db.connect <- odbcConnect(dsn = odbc.dsn, uid = odbc.uid, pwd = odbc.pwd, believeNRows=FALSE)
+
+
+
+
+# Insert DB
+sqlClear(db.connect, "T_PTSR_B")
+
+for(i in 1:nrow(db.t.ptsr.b)){
+  sqlQuery(db.connect, paste0("insert into BPT.T_PTSR_B
+                              (PART_CD, START_DAY, END_DAY, DMD_SUM, TIME_LEN, YR_DMD, ORD_COST, HLD_COST, SHT_PNT_COST, SVC_LV, SD, SCP_LEAD_TIME, ORD_QUNT, ORD_TM, TVC, ROP, SS)
+                              values(", paste0("'", db.t.ptsr.b[i,c(1:5,9:10,12)], "'", collapse = ", "),
+                              paste0(",(case when '", db.t.ptsr.b[i,6], "' = 'NA' then NULL else '", db.t.ptsr.b[i,6], "' end),",
+                                     "(case when '", db.t.ptsr.b[i,7], "' = 'NA' then NULL else '", db.t.ptsr.b[i,7], "' end),",
+                                     "(case when '", db.t.ptsr.b[i,8], "' = 'NA' then NULL else '", db.t.ptsr.b[i,8], "' end),",
+                                     "(case when '", db.t.ptsr.b[i,11], "' = 'NA' then 'N' else '", db.t.ptsr.b[i,11], "' end),",
+                                     "(case when '", db.t.ptsr.b[i,13], "' = 'NA' then NULL else '", db.t.ptsr.b[i,13], "' end),",
+                                     "(case when '", db.t.ptsr.b[i,14], "' = 'NA' then NULL else '", db.t.ptsr.b[i,14], "' end),",
+                                     "(case when '", db.t.ptsr.b[i,15], "' = 'NA' then NULL else '", db.t.ptsr.b[i,15], "' end),",
+                                     "(case when '", db.t.ptsr.b[i,16], "' = 'NA' then NULL else '", db.t.ptsr.b[i,16], "' end),",
+                                     "(case when '", db.t.ptsr.b[i,17], "' = 'NA' then NULL else '", db.t.ptsr.b[i,17], "' end),"),
+                              ",sysdate"
+                              ,");"))}
+
+error = function(e){
+  
+  sqlQuery(db.connect, paste0("  INSERT INTO BPT.T_PTSR_B
+                              (GUBUN, GUBUN_NM, SEQ, TIME, GUBUN_TYPE, MESSAGE, ERROR_MESSAGE)
+                              VALUES ('R', 'R_00_TERMAINA_PART_INVENTORY', MANAGE_MSG_SEQ.NEXTVAL, SYSDATE, 'E', 'ERROR','", conditionMessage(e), "');"))
+  
+}
+
+
+# ===========================================
+
+sqlQuery(db.connect, paste0("  INSERT INTO BPT.T_PTSR_B 
+                            (GUBUN, GUBUN_NM, SEQ, TIME, GUBUN_TYPE, MESSAGE) 
+                            VALUES ('R', 'R_00_TERMAINA_PART_INVENTORY', MANAGE_MSG_SEQ.NEXTVAL, SYSDATE, 'F', 'Procedure Finish');"))
+
+# 접속정보 해제 
+odbcClose(db.connect)
+
+
+############################################################################################################################
+
+
+require(dplyr)
+require(SCperf)
+
+##############################################################################
+#
+#                            단계 2. T_PTIV_B 테이블용 dataframe 생성    
+#
+##############################################################################
+
+# T_PTIO에 이력 정보가 1개라도 있는 부품 코드를 추출 (A, B, C 모두 해당)
+part.cd.ptio <- as.data.frame(unique(db.t.ptio$PART_CD))
+names(part.cd.ptio) <- c("PART_CD")
+
+# T_PTDT에서 B등급 부품코드만 추출 
+grade.b <- as.data.frame(unique(db.t.ptdt %>% filter(PD_GRADE == "B") %>% select(PART_CD)))
+names(grade.b) <- c("B_GRADE")
+
+# T_PTIO에서 B등급 부품 이력만 추출 
+ptio.grade.b <- db.t.ptio %>% filter(PART_CD %in% grade.b$B_GRADE) %>% 
+                              select(PART_CD, IO_IOCD, IO_IODT, IO_EA, IO_USER, IO_DAN, IO_POS, IO_WSEQ) %>% 
+                              arrange(PART_CD)
+
+# T_PTIO에서 B등급 부품 이력만 추출하면서 해당 이력별로 재고관리와 관련된 정보를 추가 
+inven.b <- inven.history(grade.b$B_GRADE, ptio.grade.b, db.t.ptdt, db.t.part)
+
+
+
+
+##############################################################################
+#
+#                     단계 3. Generate DB for SCperf package     
+#
+##############################################################################
+
+
+# B 등급 부품 DB 만들기 :
+n <- length(inven.b)
+except.num <- vector()
+for(i in 1:n) {
+  if (nrow(inven.b[[i]]) != 0) {except.num[i] <- TRUE} 
+  else {
+    cat(i, "번째 list는 데이터가 없음.", "\n", sep = " ")
+    except.num[i] <- FALSE
+    }
+}
+except.num
+
+filter.inven.b <- inven.b[which(except.num)] 
+m <- length(filter.inven.b)
+
+db.scp.b <- data.frame(matrix(nrow = m, ncol = 14))
+colnames(db.scp.b) <- c("PART_CD", "STRAT_DAY", "END_DAY", "DMD_SUM", "AVG_REAL_STK", "AVG_DISPALY_STK", 
+                        "TIME_LEN", "YR_DMD", "ORD_COST", "HLD_COST", 
+                        "SHT_PNT_COST", "SVC_LV", "SD", "PD_LEAD_TIME")
+for(i in 1:m) {
+  db.scp.b[i, ] <- pmi.data.estimate(filter.inven.b[[i]], "1900-01-01", now())
+  cat(m, "번째 중 ", i, "번째 레코드 작성 성공.", "\n", sep = " ")
+}
+
+
+str(db.scp.b)
+colSums(is.na(db.scp.b))
+
+db.scp.b$PART_CD <- as.factor(db.scp.b$PART_CD)
+db.scp.b$STRAT_DAY <- as.Date(db.scp.b$STRAT_DAY, origin = "1970-01-01")
+db.scp.b$END_DAY <- as.Date(db.scp.b$END_DAY, origin = "1970-01-01")
+db.scp.b$SCP_LEAD_TIME <- ifelse(db.scp.b$SCP_LEAD_TIME <= 0, 1, db.scp.b$SCP_LEAD_TIME)
+
+
+
+##############################################################################
+#
+#                     단계 4. EOQ, ROP, SS 등 계산      
+#
+##############################################################################
+
+
+scp.result.b.1 <- db.scp.b %>% filter(DMD_SUM > 0 & TIME_LEN > 0 & YR_DMD != "NA" & YR_DMD > 0 & SD != "NA" & SCP_LEAD_TIME > 0) %>%
+                             group_by(PART_CD) %>%
+                             mutate(EOQ_ORD = EOQ(DMD_SUM, ORD_COST, HLD_COST, SHT_PNT_COST)[1], 
+                                    EOQ_TM = EOQ(DMD_SUM, ORD_COST, HLD_COST, SHT_PNT_COST)[2], 
+                                    EOQ_TVC = EOQ(DMD_SUM, ORD_COST, HLD_COST, SHT_PNT_COST)[3], 
+                                    ROP = ROP(SVC_LV, YR_DMD, SD, PD_LEAD_TIME), 
+                                    SS = SS(SVC_LV, SD, PD_LEAD_TIME)) %>% 
+                             select(PART_CD, EOQ_ORD, EOQ_TM, EOQ_TVC, ROP, SS) %>% 
+                             arrange(PART_CD)
+
+scp.result.b.2 <- db.scp.b %>% filter(DMD_SUM > 0 &  SD != "NA" & SCP_LEAD_TIME > 0) %>%
+  group_by(PART_CD) %>%
+  mutate(EOQ_ORD = EOQ(DMD_SUM, ORD_COST, HLD_COST, SHT_PNT_COST)[1], 
+         EOQ_TM = EOQ(DMD_SUM, ORD_COST, HLD_COST, SHT_PNT_COST)[2], 
+         EOQ_TVC = EOQ(DMD_SUM, ORD_COST, HLD_COST, SHT_PNT_COST)[3], 
+         ROP = ROP(SVC_LV, YR_DMD, SD, SCP_LEAD_TIME), 
+         SS = SS(SVC_LV, SD, SCP_LEAD_TIME)) %>% 
+  select(PART_CD, EOQ_ORD, EOQ_TM, EOQ_TVC, ROP, SS) %>% 
+  arrange(PART_CD)
+
+
+summary(scp.result.b)
+str(scp.result.b)
+
+##############################################################################
+#
+#                 단계 5. T_PTSR_B 테이블용 dataframe 만들기       
+#
+##############################################################################
+
+str(db.scp.b)
+str(scp.result.b)
+
+scp.result.b <- as.data.frame(scp.result.b)
+db.t.ptsr.b <- merge(db.scp.b, scp.result.b, by = 'PART_CD')
+
+str(db.t.ptsr.b)
+
 
 
 
