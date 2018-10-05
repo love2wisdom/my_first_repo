@@ -1,0 +1,29 @@
+population <- c(1:10, 40:50, 90:100)
+qqnorm(population)
+qqline(population)
+par(mfrow=c(3,2))
+Sample.Mean <- numeric()
+for(i in 1:3000) Sample.Mean[i] <- mean(sample(population, 1, replace = T))
+hist(Sample.Mean, freq=F, main = "n-1", xlab = "Sample.Mean")
+lines(density(Sample.Mean))
+
+for(i in 1:3000) Sample.Mean[i] <- mean(sample(population, 5, replace = T))
+hist(Sample.Mean, freq=F, main = "n-5", xlab = "Sample.Mean")
+lines(density(Sample.Mean))
+
+for(i in 1:3000) Sample.Mean[i] <- mean(sample(population, 30, replace = T))
+hist(Sample.Mean, freq=F, main = "n-30", xlab = "Sample.Mean")
+lines(density(Sample.Mean))
+
+
+for(i in 1:3000) Sample.Mean[i] <- mean(sample(population, 100, replace = T))
+hist(Sample.Mean, freq=F, main = "n-100", xlab = "Sample.Mean")
+lines(density(Sample.Mean))
+
+for(i in 1:3000) Sample.Mean[i] <- mean(sample(population, 500, replace = T))
+hist(Sample.Mean, freq=F, main = "n-500", xlab = "Sample.Mean")
+lines(density(Sample.Mean))
+
+for(i in 1:3000) Sample.Mean[i] <- mean(sample(population, 1000, replace = T))
+hist(Sample.Mean, freq=F, main = "n-1000", xlab = "Sample.Mean")
+lines(density(Sample.Mean))
